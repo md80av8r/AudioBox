@@ -1,0 +1,45 @@
+# ─── macOS / editor junk ──────────────────────────
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# ─── KiCad temp & backup files ────────────────────
+*-backups/
+*.kicad_prl
+fp-info-cache
+sym-lib-table.bak
+fp-lib-table.bak
+*.bak_*
+*~revC_Panel_Complete*
+*.lck
+~*
+
+# Old experiment files
+"BACKUP WITH DELETED CHIPS.kicad_pcb"
+"BACKUP WITH DELETED CHIPS.kicad_pro"
+panel_cant_save.kicad_sch
+panelisitsavved?.kicad_sch
+md88_panel_revC_re3reversed.*
+
+# ─── PlatformIO build artifacts ───────────────────
+firmware/.pio/
+firmware/.vscode/
+*.bin
+*.elf
+
+# ─── OpenSCAD generated outputs ───────────────────
+# (keep .scad source, ignore generated)
+*.stl
+*.3mf
+
+# ─── Other generated outputs ──────────────────────
+# (keep Gerbers — they're tiny and useful as history)
+# Remove this if you want to exclude them:
+# REV.C.*.BOARD.COMPLETE/
+
+# ─── Temp / large media ───────────────────────────
+*.tmp
+*.log
+.history/
+*.history

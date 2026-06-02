@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "author": "MD-88 rev C",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+
+    { "type": "wokwi-ili9341", "id": "lcd", "top": -180, "left": 230,
+      "attrs": { "rotation": "0" } },
+
+    { "type": "wokwi-bme280", "id": "bme", "top": 60, "left": 290, "attrs": {} },
+    { "type": "wokwi-ds1307", "id": "rtc", "top": 160, "left": 290, "attrs": {} },
+
+    { "type": "wokwi-ky-040", "id": "enc", "top": 60, "left": -180, "attrs": {} },
+
+    { "type": "wokwi-pushbutton", "id": "btn_pwr", "top": -100, "left": -180,
+      "attrs": { "color": "red",   "label": "PWR" } },
+    { "type": "wokwi-pushbutton", "id": "btn_ptt", "top": -40,  "left": -180,
+      "attrs": { "color": "blue",  "label": "PTT" } },
+    { "type": "wokwi-pushbutton", "id": "btn_atc", "top": 20,   "left": -180,
+      "attrs": { "color": "green", "label": "ATC" } }
+  ],
+  "connections": [
+    [ "esp:TX",  "$serialMonitor:RX", "", [] ],
+    [ "esp:RX",  "$serialMonitor:TX", "", [] ],
+
+    [ "esp:GND.1", "lcd:GND", "black", [] ],
+    [ "esp:3V3",   "lcd:VCC", "red",   [] ],
+    [ "esp:D23",   "lcd:MOSI","green", [] ],
+    [ "esp:D18",   "lcd:SCK", "yellow",[] ],
+    [ "esp:D5",    "lcd:CS",  "orange",[] ],
+    [ "esp:D2",    "lcd:DC",  "purple",[] ],
+    [ "esp:D19",   "lcd:LED", "blue",  [] ],
+
+    [ "esp:GND.2", "bme:GND", "black", [] ],
+    [ "esp:3V3",   "bme:VCC", "red",   [] ],
+    [ "esp:D21",   "bme:SDA", "green", [] ],
+    [ "esp:D22",   "bme:SCL", "yellow",[] ],
+
+    [ "esp:GND.3", "rtc:GND", "black", [] ],
+    [ "esp:3V3",   "rtc:VCC", "red",   [] ],
+    [ "esp:D21",   "rtc:SDA", "green", [] ],
+    [ "esp:D22",   "rtc:SCL", "yellow",[] ],
+
+    [ "enc:GND",  "esp:GND.4", "black", [] ],
+    [ "enc:VCC",  "esp:3V3",   "red",   [] ],
+    [ "enc:CLK",  "esp:D13",   "green", [] ],
+    [ "enc:DT",   "esp:D14",   "yellow",[] ],
+    [ "enc:SW",   "esp:D4",    "blue",  [] ],
+
+    [ "btn_pwr:1.l", "esp:D12",   "orange", [] ],
+    [ "btn_pwr:2.r", "esp:GND.5", "black",  [] ],
+    [ "btn_ptt:1.l", "esp:D35",   "orange", [] ],
+    [ "btn_ptt:2.r", "esp:GND.5", "black",  [] ],
+    [ "btn_atc:1.l", "esp:D33",   "orange", [] ],
+    [ "btn_atc:2.r", "esp:GND.5", "black",  [] ]
+  ],
+  "dependencies": {}
+}

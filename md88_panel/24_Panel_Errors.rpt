@@ -1,0 +1,176 @@
+** Drc report for md88_panel_revC.kicad_pcb **
+** Created on 2026-05-22T21:47:47 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 38 DRC violations **
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(90.0000 mm, 39.0000 mm): PCB text 'ENCODER
+' on F.Mask
+    @(98.6000 mm, 38.0000 mm): Track [/ENC_SW] on F.Cu, length 4.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(14.0000 mm, 64.0000 mm): Zone 'Gnd_Pour' [/GND] on F.Cu, priority 1
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(14.0000 mm, 64.0000 mm): Zone 'Gnd_Pour' [/GND] on F.Cu, priority 1
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display' on F.Mask
+    @(33.8000 mm, 35.2000 mm): Track [/TOUCH_RST] on F.Cu, length 4.4200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(14.0000 mm, 64.0000 mm): Zone 'Gnd_Pour' [/GND] on F.Cu, priority 1
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(14.0000 mm, 64.0000 mm): Zone 'Gnd_Pour' [/GND] on F.Cu, priority 1
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display
+' on F.Mask
+    @(33.3000 mm, 34.7000 mm): Track [/TOUCH_SDA] on F.Cu, length 4.9200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(14.0000 mm, 64.0000 mm): Zone 'Gnd_Pour' [/GND] on F.Cu, priority 1
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(61.6500 mm, 60.7500 mm): Track [/DISP_CS] on F.Cu, length 7.1000 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(55.0000 mm, 56.0000 mm): PCB text 'Main Board' on F.Mask
+    @(14.0000 mm, 64.0000 mm): Zone 'Gnd_Pour' [/GND] on F.Cu, priority 1
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display
+' on F.Mask
+    @(33.3000 mm, 34.7000 mm): Track [/TOUCH_SDA] on F.Cu, length 4.9200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display' on F.Mask
+    @(33.8000 mm, 35.2000 mm): Track [/TOUCH_RST] on F.Cu, length 4.4200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display' on F.Mask
+    @(33.8000 mm, 35.2000 mm): Track [/TOUCH_RST] on F.Cu, length 4.4200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display
+' on F.Mask
+    @(33.3000 mm, 34.7000 mm): Track [/TOUCH_SDA] on F.Cu, length 4.9200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display' on F.Mask
+    @(33.8000 mm, 35.2000 mm): Track [/TOUCH_RST] on F.Cu, length 4.4200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display' on F.Mask
+    @(33.8000 mm, 35.2000 mm): Track [/TOUCH_RST] on F.Cu, length 4.4200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display
+' on F.Mask
+    @(33.3000 mm, 34.7000 mm): Track [/TOUCH_SDA] on F.Cu, length 4.9200 mm
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display
+' on F.Mask
+    @(33.3000 mm, 34.7000 mm): Track [/TOUCH_SDA] on F.Cu, length 4.9200 mm
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(40.0000 mm, 41.0000 mm): Via [/+3V3] on F.Cu - B.Cu
+    @(40.0000 mm, 41.0000 mm): Via [/+3V3] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(40.0000 mm, 41.0000 mm): Via [/+3V3] on F.Cu - B.Cu
+    @(40.0000 mm, 41.0000 mm): Via [/+3V3] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(40.0000 mm, 41.0000 mm): Via [/+3V3] on F.Cu - B.Cu
+    @(40.0000 mm, 41.0000 mm): Via [/+3V3] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(61.0000 mm, 53.0000 mm): Via [/DISP_CS] on F.Cu - B.Cu
+    @(61.0000 mm, 53.0000 mm): Via [/DISP_CS] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(43.0000 mm, 38.0000 mm): Via [/DISP_RST] on F.Cu - B.Cu
+    @(43.0000 mm, 38.0000 mm): Via [/DISP_RST] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(55.0000 mm, 49.0000 mm): Via [/DISP_DC] on F.Cu - B.Cu
+    @(55.0000 mm, 49.0000 mm): Via [/DISP_DC] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(55.0000 mm, 49.0000 mm): Via [/DISP_DC] on F.Cu - B.Cu
+    @(55.0000 mm, 49.0000 mm): Via [/DISP_DC] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(55.0000 mm, 49.0000 mm): Via [/DISP_DC] on F.Cu - B.Cu
+    @(55.0000 mm, 49.0000 mm): Via [/DISP_DC] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(58.0000 mm, 51.0000 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+    @(58.0000 mm, 51.0000 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(58.0000 mm, 51.0000 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+    @(58.0000 mm, 51.0000 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+[holes_co_located]: Drilled holes co-located
+    Local override; warning
+    @(58.0000 mm, 51.0000 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+    @(58.0000 mm, 51.0000 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+[silk_overlap]: Silkscreen clearance
+    Rule: board setup constraints silk; warning
+    @(83.3200 mm, 57.0500 mm): Reference field of C1
+    @(82.7350 mm, 57.4346 mm): Segment of R2 on F.Silkscreen
+[silk_overlap]: Silkscreen clearance
+    Rule: board setup constraints silk; warning
+    @(91.5300 mm, 42.5000 mm): Segment of SW1 on F.Silkscreen
+    @(93.5400 mm, 42.0000 mm): Reference field of SW1
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(83.3200 mm, 57.0500 mm): Reference field of C1
+    @(82.0000 mm, 56.2950 mm): Pad 2 [/+3V3] of R2 on F.Cu
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

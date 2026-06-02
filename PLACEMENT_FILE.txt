@@ -1,0 +1,3 @@
+Placement file: '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/REV.C.MAIN.BOARD.COMPLETE/md88_breakout_main_revC-all-pos.csv'.
+Info: Component count: 108.
+Info: Done.

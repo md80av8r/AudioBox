@@ -1,0 +1,11 @@
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-F_Cu.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-B_Cu.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-F_Paste.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-B_Paste.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-F_Silkscreen.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-B_Silkscreen.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-F_Mask.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-B_Mask.gbr'.
+Plotted to '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-Edge_Cuts.gbr'.
+Created Gerber job file '/Users/jeffreykadans/Developer/MicBreakoutBoxrev_C/md88_panel/md88_panel_revC-job.gbrjob'.
+Info: Done.

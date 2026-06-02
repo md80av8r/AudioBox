@@ -1,0 +1,35 @@
+** Drc report for md88_panel_revC.kicad_pcb **
+** Created on 2026-05-22T21:57:11 **
+** Report includes: Errors, Warnings **
+
+** Found 4 DRC violations **
+[silk_overlap]: Silkscreen clearance
+    Rule: board setup constraints silk; warning
+    @(83.3200 mm, 57.0500 mm): Reference field of C1
+    @(82.7350 mm, 57.4346 mm): Segment of R2 on F.Silkscreen
+[silk_overlap]: Silkscreen clearance
+    Rule: board setup constraints silk; warning
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display
+' on F.Silkscreen
+    @(35.0000 mm, 39.0000 mm): PCB text 'Display' on F.Silkscreen
+[silk_overlap]: Silkscreen clearance
+    Rule: board setup constraints silk; warning
+    @(91.5300 mm, 42.5000 mm): Segment of SW1 on F.Silkscreen
+    @(93.5400 mm, 42.0000 mm): Reference field of SW1
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(83.3200 mm, 57.0500 mm): Reference field of C1
+    @(82.0000 mm, 56.2950 mm): Pad 2 [/+3V3] of R2 on F.Cu
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **
