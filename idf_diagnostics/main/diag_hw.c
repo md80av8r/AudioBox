@@ -23,6 +23,8 @@ static diag_dev_t devs[] = {
 };
 #define NDEV (sizeof(devs) / sizeof(devs[0]))
 
+static void poll_task(void *arg);
+
 void diag_hw_init(i2c_master_bus_handle_t b)
 {
     bus = b;
