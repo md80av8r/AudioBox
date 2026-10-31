@@ -14,6 +14,7 @@
 - I2C: ES8388 (0x10), PCA9534 (0x38), DRV2605L (0x5A) all answer.
 - Bypass: IO20 drives the relay and the expander reads the state back.
 - Display and touch (CrowPanel Advance 4.3") via `idf_diagnostics`.
+- Over-the-air update via the Wi-Fi hotspot (upload `diagnostics.bin` at http://192.168.4.1), board restarts into the new firmware.
 
 ## Still to test
 - [ ] ANR_POWER_EN (IO8) -> +12V boost (needs the battery)
