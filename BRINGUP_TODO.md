@@ -29,3 +29,9 @@
 
 ## Notes
 - IO19/IO20 are the ESP32-S3 native USB pins; flash over the CH340 (COM port) instead.
+
+## Over-the-air updates
+- Wi-Fi hotspot update: tap "Firmware update" on the diagnostics screen, join `AudioBox-Update`
+  (password `audiobox1`), open http://192.168.4.1 and upload `build/diagnostics.bin`.
+- First time only: the partition table changed (two 4 MB app slots), so flash once over USB
+  after deleting `sdkconfig` and `build`.

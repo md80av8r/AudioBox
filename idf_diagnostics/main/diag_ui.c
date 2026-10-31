@@ -3,6 +3,7 @@
 #include "lvgl.h"
 #include "diag_hw.h"
 #include "diag_ui.h"
+#include "ota.h"
 
 #define COL_OK  lv_color_hex(0x1e9e50)
 #define COL_BAD lv_color_hex(0xd33a2c)
@@ -12,6 +13,7 @@ static lv_obj_t *exp_led[8];
 static lv_obj_t *exp_state;
 static lv_obj_t *status_line;
 static lv_obj_t *enc_line;
+static lv_obj_t *update_btn_label;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -60,6 +62,23 @@ static void haptic_cb(lv_event_t *e)
     (void)e;
     lv_label_set_text(status_line, diag_haptic_buzz() ? "Haptic: buzz sent"
                                                       : "Haptic: I2C error");
+}
+
+static void update_cb(lv_event_t *e)
+{
+    (void)e;
+    if (!ota_running()) {
+        if (ota_start()) {
+            lv_label_set_text(update_btn_label, "Stop update mode");
+            lv_label_set_text(status_line, "Wi-Fi " OTA_SSID " / " OTA_PASS " -> 192.168.4.1");
+        } else {
+            lv_label_set_text(status_line, "Update mode failed to start");
+        }
+    } else {
+        ota_stop();
+        lv_label_set_text(update_btn_label, "Firmware update");
+        lv_label_set_text(status_line, "Update mode off");
+    }
 }
 
 static void rescan_cb(lv_event_t *e)
@@ -137,8 +156,10 @@ void diag_ui_create(void)
     lv_obj_align(sw2, LV_ALIGN_TOP_LEFT, 140, 92);
     lv_obj_add_event_cb(sw2, bypass_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-    add_button(p2, "Haptic buzz", 170, haptic_cb);
-    add_button(p2, "Rescan I2C", 250, rescan_cb);
+    add_button(p2, "Haptic buzz", 150, haptic_cb);
+    add_button(p2, "Rescan I2C", 220, rescan_cb);
+    lv_obj_t *ub = add_button(p2, "Firmware update", 290, update_cb);
+    update_btn_label = lv_obj_get_child(ub, 0);
 
     // Column 3: expander inputs
     lv_obj_t *p3 = make_panel(scr, "Expander inputs (lit = high)", 560, 230);
