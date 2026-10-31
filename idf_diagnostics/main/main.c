@@ -176,7 +176,8 @@ void app_main(void)
     lv_init();
     lv_tick_set_cb(tick_cb);
 
-    const size_t buf_px = LCD_W * 40;
+    // Internal RAM is tight once Wi-Fi is linked in, so keep the draw strips small (20 lines).
+    const size_t buf_px = LCD_W * 20;
     void *buf1 = heap_caps_malloc(buf_px * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     void *buf2 = heap_caps_malloc(buf_px * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     assert(buf1 && buf2);
