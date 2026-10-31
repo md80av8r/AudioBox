@@ -1,7 +1,9 @@
 # Audio companion bring-up — to-do
 
 ## To buy (Amazon)
-- [ ] Haptic motor for the DRV2605L (connector J-HAPTIC-1). Decide ERM vs LRA; the
+- [x] Ordered: dual-shaft encoder (SimFlight, EC11-based) + 8-pin JST PH 2.0 pigtail for J-ENC-1
+- [x] Ordered: haptic motor (3V ERM coin, bare leads) + 2-pin JST PH 2.0 pigtail
+- [ ] (original note) Haptic motor for the DRV2605L (connector J-HAPTIC-1). Decide ERM vs LRA; the
       diagnostics firmware defaults to ERM (`HAPTIC_IS_LRA` in `idf_diagnostics/main/diag_hw.c`).
       Check the connector pitch on the board before ordering.
 - [ ] LiPo battery: single cell 3.7 V, 2000 mAh, built-in protection circuit,
@@ -16,7 +18,8 @@
 ## Still to test
 - [ ] ANR_POWER_EN (IO8) -> +12V boost (needs the battery)
 - [ ] Haptic motor
-- [ ] Encoder, power button inputs (turn / press, watch the expander indicators)
+- [ ] Encoder (firmware ready, polled via expander; confirm outer/inner assignment and
+      `ENC_STEPS_PER_DETENT` in `diag_hw.c` once the encoder arrives), power button
 - [ ] ES8388 audio: tone out, mic in
 - [ ] Headphone amp and mic preamp paths
 

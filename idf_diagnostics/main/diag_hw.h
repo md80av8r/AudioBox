@@ -26,5 +26,10 @@ const diag_dev_t *diag_dev(int i);
 void diag_scan(void);
 void diag_set_anr(bool on);
 void diag_set_bypass(bool on);
-bool diag_expander_read(uint8_t *bits);   // false if the expander does not answer
+bool diag_expander_read(uint8_t *bits);   // latest polled value; false if the expander does not answer
+
+// Dual concentric encoder, decoded from the expander by a 2 ms polling task.
+// Counts are in detents (positive = clockwise). Push is active low.
+void diag_enc_get(int32_t *outer, int32_t *inner, bool *pushed);
+void diag_enc_reset(void);
 bool diag_haptic_buzz(void);              // false on I2C error

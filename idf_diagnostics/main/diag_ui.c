@@ -11,6 +11,7 @@ static lv_obj_t *dev_status[8];
 static lv_obj_t *exp_led[8];
 static lv_obj_t *exp_state;
 static lv_obj_t *status_line;
+static lv_obj_t *enc_line;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -79,6 +80,12 @@ static void expander_timer_cb(lv_timer_t *t)
         if (ok && (bits & (1 << i))) lv_led_on(exp_led[i]);
         else                          lv_led_off(exp_led[i]);
     }
+
+    int32_t outer, inner;
+    bool pushed;
+    diag_enc_get(&outer, &inner, &pushed);
+    lv_label_set_text_fmt(enc_line, "Encoder  outer: %d   inner: %d   push: %s",
+                          (int)outer, (int)inner, pushed ? "DOWN" : "up");
 }
 
 static lv_obj_t *add_button(lv_obj_t *parent, const char *text, int y, lv_event_cb_t cb)
@@ -153,4 +160,8 @@ void diag_ui_create(void)
     status_line = lv_label_create(scr);
     lv_label_set_text(status_line, "Ready");
     lv_obj_align(status_line, LV_ALIGN_BOTTOM_LEFT, 16, -12);
+
+    enc_line = lv_label_create(scr);
+    lv_label_set_text(enc_line, "");
+    lv_obj_align(enc_line, LV_ALIGN_BOTTOM_RIGHT, -16, -12);
 }
