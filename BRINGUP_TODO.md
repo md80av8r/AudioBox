@@ -21,7 +21,7 @@
 - [ ] Haptic motor
 - [ ] Encoder (firmware ready, polled via expander; confirm outer/inner assignment and
       `ENC_STEPS_PER_DETENT` in `diag_hw.c` once the encoder arrives), power button
-- [ ] ES8388 audio: tone out, mic in
+- [ ] ES8388 audio: tone out ("Play tone" button, written, not yet tested on hardware), mic in
 - [ ] Headphone amp and mic preamp paths
 
 ## Possible board bug

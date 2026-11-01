@@ -4,6 +4,7 @@
 #include "diag_hw.h"
 #include "diag_ui.h"
 #include "ota.h"
+#include "codec.h"
 
 #define COL_OK  lv_color_hex(0x1e9e50)
 #define COL_BAD lv_color_hex(0xd33a2c)
@@ -14,6 +15,7 @@ static lv_obj_t *exp_state;
 static lv_obj_t *status_line;
 static lv_obj_t *enc_line;
 static lv_obj_t *update_btn_label;
+static lv_obj_t *tone_btn_label;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -62,6 +64,23 @@ static void haptic_cb(lv_event_t *e)
     (void)e;
     lv_label_set_text(status_line, diag_haptic_buzz() ? "Haptic: buzz sent"
                                                       : "Haptic: I2C error");
+}
+
+static void tone_cb(lv_event_t *e)
+{
+    (void)e;
+    if (!codec_tone_playing()) {
+        if (codec_tone_start()) {
+            lv_label_set_text(tone_btn_label, "Stop tone");
+            lv_label_set_text(status_line, "Playing 1 kHz tone (try the Bypass switch if silent)");
+        } else {
+            lv_label_set_text(status_line, "Tone failed to start (codec or I2S)");
+        }
+    } else {
+        codec_tone_stop();
+        lv_label_set_text(tone_btn_label, "Play tone");
+        lv_label_set_text(status_line, "Tone stopped");
+    }
 }
 
 static void update_cb(lv_event_t *e)
@@ -139,6 +158,8 @@ void diag_ui_create(void)
         lv_obj_align(dev_status[i], LV_ALIGN_TOP_LEFT, 0, 52 + i * 40);
     }
     refresh_devices();
+    lv_obj_t *tb = add_button(p1, "Play tone", 290, tone_cb);
+    tone_btn_label = lv_obj_get_child(tb, 0);
 
     // Column 2: controls
     lv_obj_t *p2 = make_panel(scr, "Controls", 310, 240);

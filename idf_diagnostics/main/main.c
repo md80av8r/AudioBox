@@ -14,6 +14,7 @@
 #include "lvgl.h"
 #include "diag_hw.h"
 #include "diag_ui.h"
+#include "codec.h"
 
 #define LCD_W 800
 #define LCD_H 480
@@ -138,6 +139,7 @@ void app_main(void)
 
     wait_for_i2c_devices();
     diag_hw_init(bus);
+    codec_init(bus);
 
     esp_lcd_rgb_panel_config_t cfg = {
         .clk_src = LCD_CLK_SRC_DEFAULT,
