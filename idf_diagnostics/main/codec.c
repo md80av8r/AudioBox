@@ -88,14 +88,15 @@ static void tone_task(void *arg)
     vTaskDelete(NULL);
 }
 
-bool codec_tone_start(void)
+const char *codec_tone_start(void)
 {
-    if (playing) return true;
-    if (task_alive) return false;   // previous run still shutting down
+    if (playing) return NULL;
+    for (int i = 0; i < 50 && task_alive; i++) vTaskDelay(pdMS_TO_TICKS(20));   // previous run shutting down
+    if (task_alive) return "previous tone still running";
 
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     cc.auto_clear = true;
-    if (i2s_new_channel(&cc, &tx, NULL) != ESP_OK) return false;
+    if (i2s_new_channel(&cc, &tx, NULL) != ESP_OK) return "I2S channel create";
 
     i2s_std_config_t std = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),
@@ -108,10 +109,15 @@ bool codec_tone_start(void)
             .din  = I2S_GPIO_UNUSED,
         },
     };
-    if (i2s_channel_init_std_mode(tx, &std) != ESP_OK || i2s_channel_enable(tx) != ESP_OK) {
+    if (i2s_channel_init_std_mode(tx, &std) != ESP_OK) {
         i2s_del_channel(tx);
         tx = NULL;
-        return false;
+        return "I2S init (pins/clock)";
+    }
+    if (i2s_channel_enable(tx) != ESP_OK) {
+        i2s_del_channel(tx);
+        tx = NULL;
+        return "I2S enable";
     }
 
     vTaskDelay(pdMS_TO_TICKS(20));   // let MCLK settle before talking to the codec
@@ -119,13 +125,13 @@ bool codec_tone_start(void)
         i2s_channel_disable(tx);
         i2s_del_channel(tx);
         tx = NULL;
-        return false;
+        return "codec I2C write";
     }
 
     playing = true;
     task_alive = true;
     xTaskCreate(tone_task, "tone", 4096, NULL, 4, NULL);
-    return true;
+    return NULL;
 }
 
 void codec_tone_stop(void) { playing = false; }

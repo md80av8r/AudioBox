@@ -70,11 +70,12 @@ static void tone_cb(lv_event_t *e)
 {
     (void)e;
     if (!codec_tone_playing()) {
-        if (codec_tone_start()) {
+        const char *err = codec_tone_start();
+        if (!err) {
             lv_label_set_text(tone_btn_label, "Stop tone");
             lv_label_set_text(status_line, "Playing 1 kHz tone (try the Bypass switch if silent)");
         } else {
-            lv_label_set_text(status_line, "Tone failed to start (codec or I2S)");
+            lv_label_set_text_fmt(status_line, "Tone failed: %s", err);
         }
     } else {
         codec_tone_stop();

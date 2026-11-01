@@ -4,6 +4,6 @@
 #include "driver/i2c_master.h"
 
 void codec_init(i2c_master_bus_handle_t bus);
-bool codec_tone_start(void);   // false if the codec or I2S could not be set up
+const char *codec_tone_start(void);   // NULL on success, otherwise a short reason it failed
 void codec_tone_stop(void);
 bool codec_tone_playing(void);
