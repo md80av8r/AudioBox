@@ -1,5 +1,7 @@
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
+#include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2s_std.h"
@@ -17,10 +19,25 @@ static i2s_chan_handle_t tx;
 static volatile bool playing;
 static volatile bool task_alive;
 
+static uint8_t fail_reg;
+static esp_err_t fail_err;
+static char fail_msg[56];
+
+// Write one codec register, retrying a few times; remembers the first one that fails.
 static esp_err_t cw(uint8_t reg, uint8_t val)
 {
     uint8_t b[2] = {reg, val};
-    return i2c_master_transmit(codec_dev, b, 2, 50);
+    esp_err_t e = ESP_FAIL;
+    for (int i = 0; i < 3; i++) {
+        e = i2c_master_transmit(codec_dev, b, 2, 100);
+        if (e == ESP_OK) return ESP_OK;
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+    if (fail_err == ESP_OK) {
+        fail_reg = reg;
+        fail_err = e;
+    }
+    return e;
 }
 
 void codec_init(i2c_master_bus_handle_t bus)
@@ -36,6 +53,7 @@ void codec_init(i2c_master_bus_handle_t bus)
 // Playback setup: slave mode, 16-bit I2S, single speed with MCLK = 256 x fs.
 static bool codec_configure(void)
 {
+    fail_err = ESP_OK;
     esp_err_t e = ESP_OK;
     e |= cw(0x19, 0x04);   // DAC mute while configuring
     e |= cw(0x01, 0x50);   // control 2
@@ -125,7 +143,8 @@ const char *codec_tone_start(void)
         i2s_channel_disable(tx);
         i2s_del_channel(tx);
         tx = NULL;
-        return "codec I2C write";
+        snprintf(fail_msg, sizeof(fail_msg), "codec I2C reg 0x%02X: %s", fail_reg, esp_err_to_name(fail_err));
+        return fail_msg;
     }
 
     playing = true;
