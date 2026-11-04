@@ -16,6 +16,8 @@ static lv_obj_t *status_line;
 static lv_obj_t *enc_line;
 static lv_obj_t *update_btn_label;
 static lv_obj_t *tone_btn_label;
+static lv_obj_t *pin_btn_label;
+static int pin_mode = 2;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -84,6 +86,20 @@ static void tone_cb(lv_event_t *e)
     }
 }
 
+static void pin_cb(lv_event_t *e)
+{
+    (void)e;
+    if (codec_tone_playing()) {
+        lv_label_set_text(status_line, "Stop the tone before the pin test");
+        return;
+    }
+    pin_mode = (pin_mode + 1) % 3;     // 0 low -> 1 high -> 2 released
+    diag_pin_test(pin_mode);
+    static const char *names[] = {"LOW", "HIGH", "released"};
+    lv_label_set_text_fmt(pin_btn_label, "Pins: %s", names[pin_mode]);
+    lv_label_set_text_fmt(status_line, "IO19 IO5 IO6 IO4 driven %s", names[pin_mode]);
+}
+
 static void update_cb(lv_event_t *e)
 {
     (void)e;
@@ -127,16 +143,21 @@ static void expander_timer_cb(lv_timer_t *t)
                           (int)outer, (int)inner, pushed ? "DOWN" : "up");
 }
 
-static lv_obj_t *add_button(lv_obj_t *parent, const char *text, int y, lv_event_cb_t cb)
+static lv_obj_t *add_button_at(lv_obj_t *parent, const char *text, int x, int y, int w, lv_event_cb_t cb)
 {
     lv_obj_t *b = lv_button_create(parent);
-    lv_obj_set_size(b, 200, 60);
-    lv_obj_align(b, LV_ALIGN_TOP_LEFT, 0, y);
+    lv_obj_set_size(b, w, 60);
+    lv_obj_align(b, LV_ALIGN_TOP_LEFT, x, y);
     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t *l = lv_label_create(b);
     lv_label_set_text(l, text);
     lv_obj_center(l);
     return b;
+}
+
+static lv_obj_t *add_button(lv_obj_t *parent, const char *text, int y, lv_event_cb_t cb)
+{
+    return add_button_at(parent, text, 0, y, 200, cb);
 }
 
 void diag_ui_create(void)
@@ -159,8 +180,10 @@ void diag_ui_create(void)
         lv_obj_align(dev_status[i], LV_ALIGN_TOP_LEFT, 0, 52 + i * 40);
     }
     refresh_devices();
-    lv_obj_t *tb = add_button(p1, "Play tone", 290, tone_cb);
+    lv_obj_t *tb = add_button_at(p1, "Play tone", 0, 290, 130, tone_cb);
     tone_btn_label = lv_obj_get_child(tb, 0);
+    lv_obj_t *pb = add_button_at(p1, "Pin test", 140, 290, 130, pin_cb);
+    pin_btn_label = lv_obj_get_child(pb, 0);
 
     // Column 2: controls
     lv_obj_t *p2 = make_panel(scr, "Controls", 310, 240);

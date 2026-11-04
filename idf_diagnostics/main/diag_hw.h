@@ -33,3 +33,7 @@ bool diag_expander_read(uint8_t *bits);   // latest polled value; false if the e
 void diag_enc_get(int32_t *outer, int32_t *inner, bool *pushed);
 void diag_enc_reset(void);
 bool diag_haptic_buzz(void);              // false on I2C error
+
+// Drives the four I2S output pins (MCLK, BCLK, LRCK, DOUT) so they can be checked with a meter.
+// mode 0 = all low, 1 = all high, 2 = released (inputs, no pulls).
+void diag_pin_test(int mode);

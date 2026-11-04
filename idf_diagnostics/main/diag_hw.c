@@ -135,3 +135,17 @@ bool diag_haptic_buzz(void)
     e |= drv_write(0x0C, 1);                             // GO
     return e == ESP_OK;
 }
+
+void diag_pin_test(int mode)
+{
+    static const int pins[] = {PIN_I2S_MCLK, PIN_I2S_BCLK, PIN_I2S_LRCK, PIN_I2S_DOUT};
+    for (size_t i = 0; i < sizeof(pins) / sizeof(pins[0]); i++) {
+        gpio_reset_pin(pins[i]);
+        if (mode == 2) {
+            gpio_set_direction(pins[i], GPIO_MODE_INPUT);
+        } else {
+            gpio_set_direction(pins[i], GPIO_MODE_OUTPUT);
+            gpio_set_level(pins[i], mode);
+        }
+    }
+}
