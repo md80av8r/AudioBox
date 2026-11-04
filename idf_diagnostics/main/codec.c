@@ -48,6 +48,9 @@ void codec_init(i2c_master_bus_handle_t bus)
         .scl_speed_hz = 400000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &cfg, &codec_dev));
+    // The ES8388 powers up as clock master and drives BCLK/LRCK. Make it a slave right away
+    // so it stops fighting the ESP32 on those pins.
+    cw(0x08, 0x00);
 }
 
 // Playback setup: slave mode, 16-bit I2S, single speed with MCLK = 256 x fs.
@@ -112,6 +115,7 @@ const char *codec_tone_start(void)
     for (int i = 0; i < 50 && task_alive; i++) vTaskDelay(pdMS_TO_TICKS(20));   // previous run shutting down
     if (task_alive) return "previous tone still running";
 
+    cw(0x08, 0x00);   // slave mode before the ESP32 starts driving the clocks
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     cc.auto_clear = true;
     if (i2s_new_channel(&cc, &tx, NULL) != ESP_OK) return "I2S channel create";
