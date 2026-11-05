@@ -18,6 +18,7 @@ static lv_obj_t *status_line;
 static lv_obj_t *enc_line;
 static lv_obj_t *update_btn_label;
 static lv_obj_t *tone_btn_label;
+static lv_obj_t *mon_btn_label;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -100,6 +101,25 @@ static void selftest_cb(lv_event_t *e)
     lv_label_set_text_fmt(status_line, "Self-test: %d pass, %d FAIL  (report: 192.168.4.1/report)",
                           passed, failed);
     free(buf);
+}
+
+static void monitor_cb(lv_event_t *e)
+{
+    (void)e;
+    if (!codec_tone_playing()) {
+        const char *err = codec_monitor_start();
+        if (!err) {
+            lv_label_set_text(mon_btn_label, "Stop monitor");
+            lv_label_set_text(status_line, "Mic monitor on: talk into the headset mic");
+        } else {
+            lv_label_set_text_fmt(status_line, "Monitor failed: %s", err);
+        }
+    } else {
+        codec_tone_stop();
+        lv_label_set_text(mon_btn_label, "Mic monitor");
+        lv_label_set_text(tone_btn_label, "Play tone");
+        lv_label_set_text(status_line, "Stopped");
+    }
 }
 
 static void update_cb(lv_event_t *e)
@@ -203,7 +223,8 @@ void diag_ui_create(void)
     lv_obj_add_event_cb(sw2, bypass_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     add_button(p2, "Haptic buzz", 150, haptic_cb);
-    add_button(p2, "Rescan I2C", 220, rescan_cb);
+    lv_obj_t *mb = add_button(p2, "Mic monitor", 220, monitor_cb);
+    mon_btn_label = lv_obj_get_child(mb, 0);
     lv_obj_t *ub = add_button(p2, "Firmware update", 290, update_cb);
     update_btn_label = lv_obj_get_child(ub, 0);
 

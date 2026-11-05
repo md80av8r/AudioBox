@@ -16,6 +16,7 @@
 
 static i2c_master_dev_handle_t codec_dev;
 static i2s_chan_handle_t tx;
+static volatile bool monitor_mode;
 static volatile bool playing;
 static volatile bool task_alive;
 
@@ -77,6 +78,14 @@ static bool codec_configure(void)
     e |= cw(0x2F, OUT_VOLUME);   // ROUT1
     e |= cw(0x30, OUT_VOLUME);   // LOUT2
     e |= cw(0x31, OUT_VOLUME);   // ROUT2
+    if (monitor_mode) {
+        e |= cw(0x03, 0x00);   // ADC input stage and mic bias powered
+        e |= cw(0x09, 0x44);   // mic PGA gain 12 dB
+        e |= cw(0x0A, 0x50);   // left/right input select: LIN2 / RIN2
+        e |= cw(0x26, 0x08);   // left mixer input = LIN2
+        e |= cw(0x27, 0x50);   // left input -> left output mixer (0 dB), DAC not used
+        e |= cw(0x2A, 0x50);   // right input -> right output mixer
+    }
     e |= cw(0x04, 0x3C);   // DACs and all four outputs on
     e |= cw(0x19, 0x00);   // unmute
     return e == ESP_OK;
@@ -88,7 +97,7 @@ static void tone_task(void *arg)
     enum { N = SAMPLE_RATE / TONE_HZ };   // 48 samples per cycle
     static int16_t cycle[N * 2];
     for (int i = 0; i < N; i++) {
-        int16_t s = (int16_t)(TONE_AMP * sinf(2.0f * (float)M_PI * i / N));
+        int16_t s = monitor_mode ? 0 : (int16_t)(TONE_AMP * sinf(2.0f * (float)M_PI * i / N));
         cycle[2 * i] = s;
         cycle[2 * i + 1] = s;
     }
@@ -109,7 +118,7 @@ static void tone_task(void *arg)
     vTaskDelete(NULL);
 }
 
-const char *codec_tone_start(void)
+static const char *start_common(void)
 {
     if (playing) return NULL;
     for (int i = 0; i < 50 && task_alive; i++) vTaskDelay(pdMS_TO_TICKS(20));   // previous run shutting down
@@ -155,6 +164,20 @@ const char *codec_tone_start(void)
     task_alive = true;
     xTaskCreate(tone_task, "tone", 4096, NULL, 4, NULL);
     return NULL;
+}
+
+const char *codec_tone_start(void)
+{
+    if (playing) return NULL;
+    monitor_mode = false;
+    return start_common();
+}
+
+const char *codec_monitor_start(void)
+{
+    if (playing) return NULL;
+    monitor_mode = true;
+    return start_common();
 }
 
 void codec_tone_stop(void) { playing = false; }
