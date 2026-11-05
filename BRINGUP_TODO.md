@@ -42,3 +42,7 @@
 - Poke I2C: `/i2c?dev=0x10&reg=0x08` (read), add `&val=0x00` to write
 - Pins: `/gpio?pin=5&mode=out&level=0` (mode: in, out, release; pins 4, 5, 6, 19)
 - Tone: `/tone?on=1` / `/tone?on=0`
+
+## Note
+- The Haptic buzz button was replaced by Loopback test while debugging audio; add it back when the haptic motor arrives
+  (`diag_haptic_buzz()` is still in diag_hw.c).

@@ -19,6 +19,7 @@ static lv_obj_t *enc_line;
 static lv_obj_t *update_btn_label;
 static lv_obj_t *tone_btn_label;
 static lv_obj_t *mon_btn_label;
+static lv_obj_t *loop_btn_label;
 static lv_obj_t *mic_bar;
 static lv_obj_t *gain_label;
 
@@ -118,6 +119,26 @@ static void monitor_cb(lv_event_t *e)
         }
     } else {
         codec_tone_stop();
+        lv_label_set_text(mon_btn_label, "Mic monitor");
+        lv_label_set_text(tone_btn_label, "Play tone");
+        lv_label_set_text(status_line, "Stopped");
+    }
+}
+
+static void loopback_cb(lv_event_t *e)
+{
+    (void)e;
+    if (!codec_tone_playing()) {
+        const char *err = codec_loopback_start();
+        if (!err) {
+            lv_label_set_text(loop_btn_label, "Stop loopback");
+            lv_label_set_text(status_line, "Loopback: LINE OUT -> LINE IN. Watch the Mic level bar");
+        } else {
+            lv_label_set_text_fmt(status_line, "Loopback failed: %s", err);
+        }
+    } else {
+        codec_tone_stop();
+        lv_label_set_text(loop_btn_label, "Loopback test");
         lv_label_set_text(mon_btn_label, "Mic monitor");
         lv_label_set_text(tone_btn_label, "Play tone");
         lv_label_set_text(status_line, "Stopped");
@@ -254,7 +275,8 @@ void diag_ui_create(void)
     lv_obj_align(sw2, LV_ALIGN_TOP_LEFT, 140, 92);
     lv_obj_add_event_cb(sw2, bypass_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-    add_button(p2, "Haptic buzz", 150, haptic_cb);
+    lv_obj_t *lb = add_button(p2, "Loopback test", 150, loopback_cb);
+    loop_btn_label = lv_obj_get_child(lb, 0);
     lv_obj_t *mb = add_button(p2, "Mic monitor", 220, monitor_cb);
     mon_btn_label = lv_obj_get_child(mb, 0);
     lv_obj_t *ub = add_button(p2, "Firmware update", 290, update_cb);

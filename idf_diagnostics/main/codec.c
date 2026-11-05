@@ -20,6 +20,7 @@ static i2s_chan_handle_t rx;
 static volatile int mic_level;
 static uint8_t mic_gain_reg = 0x44;   // 12 dB
 static volatile bool monitor_mode;
+static volatile bool loopback_mode;
 static volatile bool playing;
 static volatile bool task_alive;
 
@@ -81,6 +82,17 @@ static bool codec_configure(void)
     e |= cw(0x2F, OUT_VOLUME);   // ROUT1
     e |= cw(0x30, OUT_VOLUME);   // LOUT2
     e |= cw(0x31, OUT_VOLUME);   // ROUT2
+    if (loopback_mode) {
+        e |= cw(0x03, 0x00);   // ADC powered
+        e |= cw(0x09, 0x00);   // line level: PGA 0 dB
+        e |= cw(0x0A, 0x00);   // inputs: LIN1 / RIN1 (the LINE IN connector)
+        e |= cw(0x0C, 0x0C);   // ADC: I2S format, 16-bit
+        e |= cw(0x0D, 0x02);   // ADC: single speed, MCLK/fs = 256
+        e |= cw(0x2E, 0x1E);   // outputs at 0 dB so the loopback level is easy to see
+        e |= cw(0x2F, 0x1E);
+        e |= cw(0x30, 0x1E);
+        e |= cw(0x31, 0x1E);
+    }
     if (monitor_mode) {
         e |= cw(0x03, 0x00);   // ADC input stage and mic bias powered
         e |= cw(0x09, mic_gain_reg);   // mic PGA gain
@@ -159,7 +171,7 @@ static const char *start_common(void)
     cw(0x08, 0x00);   // slave mode before the ESP32 starts driving the clocks
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     cc.auto_clear = true;
-    if (i2s_new_channel(&cc, &tx, monitor_mode ? &rx : NULL) != ESP_OK) return "I2S channel create";
+    if (i2s_new_channel(&cc, &tx, (monitor_mode || loopback_mode) ? &rx : NULL) != ESP_OK) return "I2S channel create";
 
     i2s_std_config_t std = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),
@@ -169,7 +181,7 @@ static const char *start_common(void)
             .bclk = PIN_I2S_BCLK,
             .ws   = PIN_I2S_LRCK,
             .dout = PIN_I2S_DOUT,
-            .din  = monitor_mode ? PIN_I2S_DIN : I2S_GPIO_UNUSED,
+            .din  = (monitor_mode || loopback_mode) ? PIN_I2S_DIN : I2S_GPIO_UNUSED,
         },
     };
     if (i2s_channel_init_std_mode(tx, &std) != ESP_OK ||
@@ -206,6 +218,15 @@ const char *codec_tone_start(void)
 {
     if (playing) return NULL;
     monitor_mode = false;
+    loopback_mode = false;
+    return start_common();
+}
+
+const char *codec_loopback_start(void)
+{
+    if (playing) return NULL;
+    monitor_mode = false;
+    loopback_mode = true;
     return start_common();
 }
 
@@ -213,6 +234,7 @@ const char *codec_monitor_start(void)
 {
     if (playing) return NULL;
     monitor_mode = true;
+    loopback_mode = false;
     return start_common();
 }
 
