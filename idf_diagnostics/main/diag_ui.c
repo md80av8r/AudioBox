@@ -97,7 +97,12 @@ static void pin_cb(lv_event_t *e)
     diag_pin_test(pin_mode);
     static const char *names[] = {"LOW", "HIGH", "released"};
     lv_label_set_text_fmt(pin_btn_label, "Pins: %s", names[pin_mode]);
-    lv_label_set_text_fmt(status_line, "IO19 IO5 IO6 IO4 driven %s", names[pin_mode]);
+    uint8_t r00 = 0xEE, r02 = 0xEE, r08 = 0xEE;   // 0xEE = read failed
+    codec_read_reg(0x00, &r00);
+    codec_read_reg(0x02, &r02);
+    codec_read_reg(0x08, &r08);
+    lv_label_set_text_fmt(status_line, "Pins %s | codec r00=%02X r02=%02X r08=%02X",
+                          names[pin_mode], r00, r02, r08);
 }
 
 static void update_cb(lv_event_t *e)

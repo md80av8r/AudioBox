@@ -159,3 +159,8 @@ const char *codec_tone_start(void)
 
 void codec_tone_stop(void) { playing = false; }
 bool codec_tone_playing(void) { return playing; }
+
+bool codec_read_reg(uint8_t reg, uint8_t *val)
+{
+    return i2c_master_transmit_receive(codec_dev, &reg, 1, val, 1, 100) == ESP_OK;
+}
