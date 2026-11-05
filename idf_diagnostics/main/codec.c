@@ -16,6 +16,9 @@
 
 static i2c_master_dev_handle_t codec_dev;
 static i2s_chan_handle_t tx;
+static i2s_chan_handle_t rx;
+static volatile int mic_level;
+static uint8_t mic_gain_reg = 0x44;   // 12 dB
 static volatile bool monitor_mode;
 static volatile bool playing;
 static volatile bool task_alive;
@@ -80,7 +83,9 @@ static bool codec_configure(void)
     e |= cw(0x31, OUT_VOLUME);   // ROUT2
     if (monitor_mode) {
         e |= cw(0x03, 0x00);   // ADC input stage and mic bias powered
-        e |= cw(0x09, 0x44);   // mic PGA gain 12 dB
+        e |= cw(0x09, mic_gain_reg);   // mic PGA gain
+        e |= cw(0x0C, 0x0C);   // ADC: I2S format, 16-bit
+        e |= cw(0x0D, 0x02);   // ADC: single speed, MCLK/fs = 256
         e |= cw(0x0A, 0x50);   // left/right input select: LIN2 / RIN2
         e |= cw(0x26, 0x08);   // left mixer input = LIN2
         e |= cw(0x27, 0x50);   // left input -> left output mixer (0 dB), DAC not used
@@ -105,12 +110,39 @@ static void tone_task(void *arg)
     for (int k = 0; k < 8; k++) {
         for (int i = 0; i < N * 2; i++) buf[k * N * 2 + i] = cycle[i];
     }
+    static int16_t rbuf[N * 2 * 8];
     while (playing) {
         size_t written;
         i2s_channel_write(tx, buf, sizeof(buf), &written, 200);
+        if (rx) {
+            size_t got = 0;
+            if (i2s_channel_read(rx, rbuf, sizeof(rbuf), &got, 100) == ESP_OK && got >= 4) {
+                int peak = 0;
+                for (size_t i = 0; i + 1 < got / 2; i += 2) {   // left channel only
+                    int v = rbuf[i];
+                    if (v < 0) v = -v;
+                    if (v > peak) peak = v;
+                }
+                int lvl = 0;
+                if (peak > 0) {
+                    float db = 20.0f * log10f((float)peak / 32768.0f);
+                    lvl = (int)((db + 60.0f) / 60.0f * 100.0f);
+                    if (lvl < 0) lvl = 0;
+                    if (lvl > 100) lvl = 100;
+                }
+                int fall = mic_level - 4;
+                mic_level = lvl > fall ? lvl : fall;
+            }
+        }
     }
+    mic_level = 0;
     cw(0x19, 0x04);          // mute
     cw(0x04, 0xC0);          // outputs off
+    if (rx) {
+        i2s_channel_disable(rx);
+        i2s_del_channel(rx);
+        rx = NULL;
+    }
     i2s_channel_disable(tx);
     i2s_del_channel(tx);
     tx = NULL;
@@ -127,7 +159,7 @@ static const char *start_common(void)
     cw(0x08, 0x00);   // slave mode before the ESP32 starts driving the clocks
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     cc.auto_clear = true;
-    if (i2s_new_channel(&cc, &tx, NULL) != ESP_OK) return "I2S channel create";
+    if (i2s_new_channel(&cc, &tx, monitor_mode ? &rx : NULL) != ESP_OK) return "I2S channel create";
 
     i2s_std_config_t std = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),
@@ -137,15 +169,18 @@ static const char *start_common(void)
             .bclk = PIN_I2S_BCLK,
             .ws   = PIN_I2S_LRCK,
             .dout = PIN_I2S_DOUT,
-            .din  = I2S_GPIO_UNUSED,
+            .din  = monitor_mode ? PIN_I2S_DIN : I2S_GPIO_UNUSED,
         },
     };
-    if (i2s_channel_init_std_mode(tx, &std) != ESP_OK) {
+    if (i2s_channel_init_std_mode(tx, &std) != ESP_OK ||
+        (rx && i2s_channel_init_std_mode(rx, &std) != ESP_OK)) {
+        if (rx) { i2s_del_channel(rx); rx = NULL; }
         i2s_del_channel(tx);
         tx = NULL;
         return "I2S init (pins/clock)";
     }
-    if (i2s_channel_enable(tx) != ESP_OK) {
+    if (i2s_channel_enable(tx) != ESP_OK || (rx && i2s_channel_enable(rx) != ESP_OK)) {
+        if (rx) { i2s_del_channel(rx); rx = NULL; }
         i2s_del_channel(tx);
         tx = NULL;
         return "I2S enable";
@@ -153,6 +188,7 @@ static const char *start_common(void)
 
     vTaskDelay(pdMS_TO_TICKS(20));   // let MCLK settle before talking to the codec
     if (!codec_configure()) {
+        if (rx) { i2s_channel_disable(rx); i2s_del_channel(rx); rx = NULL; }
         i2s_channel_disable(tx);
         i2s_del_channel(tx);
         tx = NULL;
@@ -191,4 +227,14 @@ bool codec_read_reg(uint8_t reg, uint8_t *val)
 bool codec_write_reg(uint8_t reg, uint8_t val)
 {
     return cw(reg, val) == ESP_OK;
+}
+
+int codec_mic_level(void) { return mic_level; }
+
+void codec_set_mic_gain(int step)
+{
+    if (step < 0) step = 0;
+    if (step > 8) step = 8;
+    mic_gain_reg = (uint8_t)(step * 0x11);
+    cw(0x09, mic_gain_reg);
 }

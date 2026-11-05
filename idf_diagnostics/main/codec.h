@@ -11,3 +11,7 @@ void codec_tone_stop(void);   // stops the tone or the monitor
 bool codec_tone_playing(void);
 bool codec_read_reg(uint8_t reg, uint8_t *val);   // for diagnostics
 bool codec_write_reg(uint8_t reg, uint8_t val);   // for diagnostics
+
+// Mic input (active while the mic monitor runs)
+int codec_mic_level(void);            // 0..100, roughly -60 dB..0 dBFS, with a slow fall-off
+void codec_set_mic_gain(int step);    // 0..8 = 0..24 dB in 3 dB steps

@@ -19,6 +19,8 @@ static lv_obj_t *enc_line;
 static lv_obj_t *update_btn_label;
 static lv_obj_t *tone_btn_label;
 static lv_obj_t *mon_btn_label;
+static lv_obj_t *mic_bar;
+static lv_obj_t *gain_label;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -158,6 +160,8 @@ static void expander_timer_cb(lv_timer_t *t)
         else                          lv_led_off(exp_led[i]);
     }
 
+    lv_bar_set_value(mic_bar, codec_mic_level(), LV_ANIM_OFF);
+
     int32_t outer, inner;
     bool pushed;
     diag_enc_get(&outer, &inner, &pushed);
@@ -165,10 +169,10 @@ static void expander_timer_cb(lv_timer_t *t)
                           (int)outer, (int)inner, pushed ? "DOWN" : "up");
 }
 
-static lv_obj_t *add_button_at(lv_obj_t *parent, const char *text, int x, int y, int w, lv_event_cb_t cb)
+static lv_obj_t *add_button_at(lv_obj_t *parent, const char *text, int x, int y, int w, int h, lv_event_cb_t cb)
 {
     lv_obj_t *b = lv_button_create(parent);
-    lv_obj_set_size(b, w, 60);
+    lv_obj_set_size(b, w, h);
     lv_obj_align(b, LV_ALIGN_TOP_LEFT, x, y);
     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t *l = lv_label_create(b);
@@ -179,7 +183,15 @@ static lv_obj_t *add_button_at(lv_obj_t *parent, const char *text, int x, int y,
 
 static lv_obj_t *add_button(lv_obj_t *parent, const char *text, int y, lv_event_cb_t cb)
 {
-    return add_button_at(parent, text, 0, y, 200, cb);
+    return add_button_at(parent, text, 0, y, 200, 60, cb);
+}
+
+static void gain_cb(lv_event_t *e)
+{
+    lv_obj_t *sl = (lv_obj_t *)lv_event_get_target(e);
+    int step = (int)lv_slider_get_value(sl);
+    codec_set_mic_gain(step);
+    lv_label_set_text_fmt(gain_label, "Mic gain %d dB", step * 3);
 }
 
 void diag_ui_create(void)
@@ -193,18 +205,38 @@ void diag_ui_create(void)
 
     // Column 1: I2C devices
     lv_obj_t *p1 = make_panel(scr, "I2C devices", 10, 290);
+    lv_obj_remove_flag(p1, LV_OBJ_FLAG_SCROLLABLE);
     for (int i = 0; i < diag_dev_count(); i++) {
         const diag_dev_t *d = diag_dev(i);
         lv_obj_t *name = lv_label_create(p1);
         lv_label_set_text_fmt(name, "%s (0x%02X)", d->name, d->addr);
-        lv_obj_align(name, LV_ALIGN_TOP_LEFT, 0, 34 + i * 40);
+        lv_obj_align(name, LV_ALIGN_TOP_LEFT, 0, 28 + i * 26);
         dev_status[i] = lv_label_create(p1);
-        lv_obj_align(dev_status[i], LV_ALIGN_TOP_LEFT, 0, 52 + i * 40);
+        lv_obj_align(dev_status[i], LV_ALIGN_TOP_LEFT, 200, 28 + i * 26);
     }
     refresh_devices();
-    lv_obj_t *tb = add_button_at(p1, "Play tone", 0, 290, 130, tone_cb);
+
+    lv_obj_t *ml = lv_label_create(p1);
+    lv_label_set_text(ml, "Mic level");
+    lv_obj_align(ml, LV_ALIGN_TOP_LEFT, 0, 188);
+    mic_bar = lv_bar_create(p1);
+    lv_obj_set_size(mic_bar, 250, 16);
+    lv_bar_set_range(mic_bar, 0, 100);
+    lv_bar_set_value(mic_bar, 0, LV_ANIM_OFF);
+    lv_obj_align(mic_bar, LV_ALIGN_TOP_LEFT, 0, 208);
+    gain_label = lv_label_create(p1);
+    lv_label_set_text(gain_label, "Mic gain 12 dB");
+    lv_obj_align(gain_label, LV_ALIGN_TOP_LEFT, 0, 234);
+    lv_obj_t *gs = lv_slider_create(p1);
+    lv_obj_set_size(gs, 240, 12);
+    lv_slider_set_range(gs, 0, 8);
+    lv_slider_set_value(gs, 4, LV_ANIM_OFF);
+    lv_obj_align(gs, LV_ALIGN_TOP_LEFT, 8, 262);
+    lv_obj_add_event_cb(gs, gain_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    lv_obj_t *tb = add_button_at(p1, "Play tone", 0, 284, 130, 50, tone_cb);
     tone_btn_label = lv_obj_get_child(tb, 0);
-    add_button_at(p1, "Self-test", 140, 290, 130, selftest_cb);
+    add_button_at(p1, "Self-test", 140, 284, 130, 50, selftest_cb);
 
     // Column 2: controls
     lv_obj_t *p2 = make_panel(scr, "Controls", 310, 240);
