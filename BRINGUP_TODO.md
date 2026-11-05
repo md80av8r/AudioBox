@@ -36,3 +36,9 @@
   (password `audiobox1`), open http://192.168.4.1 and upload `build/diagnostics.bin`.
 - First time only: the partition table changed (two 4 MB app slots), so flash once over USB
   after deleting `sdkconfig` and `build`.
+
+## Bench tools (diagnostics firmware, hotspot on)
+- `Self-test` button on the screen runs every check; full text at http://192.168.4.1/report
+- Poke I2C: `/i2c?dev=0x10&reg=0x08` (read), add `&val=0x00` to write
+- Pins: `/gpio?pin=5&mode=out&level=0` (mode: in, out, release; pins 4, 5, 6, 19)
+- Tone: `/tone?on=1` / `/tone?on=0`

@@ -164,3 +164,8 @@ bool codec_read_reg(uint8_t reg, uint8_t *val)
 {
     return i2c_master_transmit_receive(codec_dev, &reg, 1, val, 1, 100) == ESP_OK;
 }
+
+bool codec_write_reg(uint8_t reg, uint8_t val)
+{
+    return cw(reg, val) == ESP_OK;
+}

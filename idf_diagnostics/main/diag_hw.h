@@ -37,3 +37,6 @@ bool diag_haptic_buzz(void);              // false on I2C error
 // Drives the four I2S output pins (MCLK, BCLK, LRCK, DOUT) so they can be checked with a meter.
 // mode 0 = all low, 1 = all high, 2 = released (inputs, no pulls).
 void diag_pin_test(int mode);
+
+// Generic I2C access for the web tools: val < 0 reads one register into *out, otherwise writes val.
+bool diag_i2c_rw(uint8_t addr, uint8_t reg, int val, uint8_t *out);

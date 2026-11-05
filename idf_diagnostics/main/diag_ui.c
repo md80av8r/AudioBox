@@ -5,6 +5,8 @@
 #include "diag_ui.h"
 #include "ota.h"
 #include "codec.h"
+#include "selftest.h"
+#include <stdlib.h>
 
 #define COL_OK  lv_color_hex(0x1e9e50)
 #define COL_BAD lv_color_hex(0xd33a2c)
@@ -16,8 +18,6 @@ static lv_obj_t *status_line;
 static lv_obj_t *enc_line;
 static lv_obj_t *update_btn_label;
 static lv_obj_t *tone_btn_label;
-static lv_obj_t *pin_btn_label;
-static int pin_mode = 2;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -86,23 +86,20 @@ static void tone_cb(lv_event_t *e)
     }
 }
 
-static void pin_cb(lv_event_t *e)
+static void selftest_cb(lv_event_t *e)
 {
     (void)e;
-    if (codec_tone_playing()) {
-        lv_label_set_text(status_line, "Stop the tone before the pin test");
+    char *buf = malloc(4096);
+    if (!buf) {
+        lv_label_set_text(status_line, "Self-test: out of memory");
         return;
     }
-    pin_mode = (pin_mode + 1) % 3;     // 0 low -> 1 high -> 2 released
-    diag_pin_test(pin_mode);
-    static const char *names[] = {"LOW", "HIGH", "released"};
-    lv_label_set_text_fmt(pin_btn_label, "Pins: %s", names[pin_mode]);
-    uint8_t r00 = 0xEE, r02 = 0xEE, r08 = 0xEE;   // 0xEE = read failed
-    codec_read_reg(0x00, &r00);
-    codec_read_reg(0x02, &r02);
-    codec_read_reg(0x08, &r08);
-    lv_label_set_text_fmt(status_line, "Pins %s | codec r00=%02X r02=%02X r08=%02X",
-                          names[pin_mode], r00, r02, r08);
+    int passed;
+    int failed = selftest_run(buf, 4096, &passed);
+    printf("%s\n", buf);
+    lv_label_set_text_fmt(status_line, "Self-test: %d pass, %d FAIL  (report: 192.168.4.1/report)",
+                          passed, failed);
+    free(buf);
 }
 
 static void update_cb(lv_event_t *e)
@@ -187,8 +184,7 @@ void diag_ui_create(void)
     refresh_devices();
     lv_obj_t *tb = add_button_at(p1, "Play tone", 0, 290, 130, tone_cb);
     tone_btn_label = lv_obj_get_child(tb, 0);
-    lv_obj_t *pb = add_button_at(p1, "Pin test", 140, 290, 130, pin_cb);
-    pin_btn_label = lv_obj_get_child(pb, 0);
+    add_button_at(p1, "Self-test", 140, 290, 130, selftest_cb);
 
     // Column 2: controls
     lv_obj_t *p2 = make_panel(scr, "Controls", 310, 240);

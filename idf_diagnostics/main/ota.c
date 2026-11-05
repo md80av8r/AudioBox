@@ -11,6 +11,10 @@
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "ota.h"
+#include "codec.h"
+#include "diag_hw.h"
+#include "driver/gpio.h"
+#include "selftest.h"
 
 static httpd_handle_t server;
 static bool wifi_ready;
@@ -29,7 +33,11 @@ static const char page_tail[] =
     "x.upload.onprogress=function(e){document.getElementById('p').value=e.loaded*100/e.total};"
     "x.onload=function(){document.getElementById('s').textContent=x.responseText};"
     "x.onerror=function(){document.getElementById('s').textContent='Upload failed'};"
-    "x.send(f)}</script>";
+    "x.send(f)}</script>"
+    "<hr><p>Bench tools: <a href=/report>self-test report</a>, "
+    "/i2c?dev=0x10&amp;reg=0x08 (add &amp;val=0x00 to write), "
+    "/gpio?pin=5&amp;mode=out&amp;level=0 (mode in, out or release), "
+    "/tone?on=1</p>";
 
 static esp_err_t index_get(httpd_req_t *req)
 {
@@ -91,6 +99,94 @@ static esp_err_t update_post(httpd_req_t *req)
     return ESP_OK;
 }
 
+
+// ---- Bench tools: read the self-test report, poke I2C registers and pins from a browser ----
+
+static bool qint(httpd_req_t *req, const char *key, long *val)
+{
+    char q[96], v[24];
+    if (httpd_req_get_url_query_str(req, q, sizeof(q)) != ESP_OK) return false;
+    if (httpd_query_key_value(q, key, v, sizeof(v)) != ESP_OK) return false;
+    *val = strtol(v, NULL, 0);
+    return true;
+}
+
+static bool qstr(httpd_req_t *req, const char *key, char *val, size_t n)
+{
+    char q[96];
+    if (httpd_req_get_url_query_str(req, q, sizeof(q)) != ESP_OK) return false;
+    return httpd_query_key_value(q, key, val, n) == ESP_OK;
+}
+
+static esp_err_t report_get(httpd_req_t *req)
+{
+    char *buf = malloc(4096);
+    if (!buf) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+    int passed;
+    selftest_run(buf, 4096, &passed);
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_sendstr(req, buf);
+    free(buf);
+    return ESP_OK;
+}
+
+static esp_err_t i2c_get(httpd_req_t *req)
+{
+    long dev, reg, val;
+    char msg[96];
+    httpd_resp_set_type(req, "text/plain");
+    if (!qint(req, "dev", &dev) || !qint(req, "reg", &reg)) {
+        return httpd_resp_sendstr(req, "usage: /i2c?dev=0x10&reg=0x08   (add &val=0x00 to write)");
+    }
+    bool write = qint(req, "val", &val);
+    uint8_t out = 0;
+    bool ok = diag_i2c_rw((uint8_t)dev, (uint8_t)reg, write ? (int)val : -1, &out);
+    snprintf(msg, sizeof(msg), "dev 0x%02lX reg 0x%02lX %s %s 0x%02X\n", dev, reg,
+             write ? "write" : "read", ok ? "ok" : "FAILED", out);
+    return httpd_resp_sendstr(req, msg);
+}
+
+static esp_err_t gpio_get_handler(httpd_req_t *req)
+{
+    static const int allowed[] = {4, 5, 6, 19};   // the I2S pins only
+    long pin, level;
+    char mode[12], msg[96];
+    httpd_resp_set_type(req, "text/plain");
+    if (!qint(req, "pin", &pin) || !qstr(req, "mode", mode, sizeof(mode))) {
+        return httpd_resp_sendstr(req, "usage: /gpio?pin=5&mode=out&level=0   (mode: in, out, release; pins 4 5 6 19)");
+    }
+    bool pin_ok = false;
+    for (size_t i = 0; i < sizeof(allowed) / sizeof(allowed[0]); i++) pin_ok |= (allowed[i] == pin);
+    if (!pin_ok) return httpd_resp_sendstr(req, "pin not allowed");
+
+    if (!strcmp(mode, "out")) {
+        gpio_reset_pin((int)pin);
+        gpio_set_direction((int)pin, GPIO_MODE_INPUT_OUTPUT);
+        gpio_set_level((int)pin, qint(req, "level", &level) ? (int)level : 0);
+    } else if (!strcmp(mode, "in") || !strcmp(mode, "release")) {
+        gpio_reset_pin((int)pin);
+        gpio_set_direction((int)pin, GPIO_MODE_INPUT);
+    }
+    snprintf(msg, sizeof(msg), "IO%ld mode %s, pad reads %d\n", pin, mode, gpio_get_level((int)pin));
+    return httpd_resp_sendstr(req, msg);
+}
+
+static esp_err_t tone_get(httpd_req_t *req)
+{
+    long on;
+    char msg[96];
+    httpd_resp_set_type(req, "text/plain");
+    if (!qint(req, "on", &on)) return httpd_resp_sendstr(req, "usage: /tone?on=1  or  /tone?on=0");
+    if (on) {
+        const char *err = codec_tone_start();
+        snprintf(msg, sizeof(msg), "%s\n", err ? err : "tone playing");
+    } else {
+        codec_tone_stop();
+        snprintf(msg, sizeof(msg), "tone stopping\n");
+    }
+    return httpd_resp_sendstr(req, msg);
+}
+
 static bool wifi_init_once(void)
 {
     if (wifi_ready) return true;
@@ -131,6 +227,14 @@ bool ota_start(void)
     httpd_uri_t upd = {.uri = "/update", .method = HTTP_POST, .handler = update_post};
     httpd_register_uri_handler(server, &idx);
     httpd_register_uri_handler(server, &upd);
+    httpd_uri_t rep = {.uri = "/report", .method = HTTP_GET, .handler = report_get};
+    httpd_uri_t i2c = {.uri = "/i2c", .method = HTTP_GET, .handler = i2c_get};
+    httpd_uri_t gpi = {.uri = "/gpio", .method = HTTP_GET, .handler = gpio_get_handler};
+    httpd_uri_t ton = {.uri = "/tone", .method = HTTP_GET, .handler = tone_get};
+    httpd_register_uri_handler(server, &rep);
+    httpd_register_uri_handler(server, &i2c);
+    httpd_register_uri_handler(server, &gpi);
+    httpd_register_uri_handler(server, &ton);
     running = true;
     return true;
 }

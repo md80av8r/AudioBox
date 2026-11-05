@@ -9,3 +9,4 @@ const char *codec_tone_start(void);   // NULL on success, otherwise a short reas
 void codec_tone_stop(void);
 bool codec_tone_playing(void);
 bool codec_read_reg(uint8_t reg, uint8_t *val);   // for diagnostics
+bool codec_write_reg(uint8_t reg, uint8_t val);   // for diagnostics

@@ -149,3 +149,24 @@ void diag_pin_test(int mode)
         }
     }
 }
+
+bool diag_i2c_rw(uint8_t addr, uint8_t reg, int val, uint8_t *out)
+{
+    i2c_device_config_t cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = 400000,
+    };
+    i2c_master_dev_handle_t h;
+    if (i2c_master_bus_add_device(bus, &cfg, &h) != ESP_OK) return false;
+    esp_err_t e;
+    if (val >= 0) {
+        uint8_t b[2] = {reg, (uint8_t)val};
+        e = i2c_master_transmit(h, b, 2, 100);
+        *out = (uint8_t)val;
+    } else {
+        e = i2c_master_transmit_receive(h, &reg, 1, out, 1, 100);
+    }
+    i2c_master_bus_rm_device(h);
+    return e == ESP_OK;
+}
