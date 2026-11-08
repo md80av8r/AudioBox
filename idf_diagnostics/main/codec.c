@@ -272,3 +272,9 @@ void codec_set_out_volume(int reg)
     cw(0x30, out_vol_reg);
     cw(0x31, out_vol_reg);
 }
+
+bool codec_wait_stopped(int ms)
+{
+    for (int t = 0; t < ms && (task_alive || playing); t += 20) vTaskDelay(pdMS_TO_TICKS(20));
+    return !task_alive && !playing;
+}

@@ -4,6 +4,8 @@
 #include "driver/gpio.h"
 #include "esp_app_desc.h"
 #include "esp_rom_sys.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "codec.h"
 #include "diag_hw.h"
 #include "pins_companion.h"
@@ -109,6 +111,21 @@ int selftest_run(char *buf, size_t size, int *passed)
     test_pin("BCLK", PIN_I2S_BCLK);
     test_pin("LRCK", PIN_I2S_LRCK);
     test_pin("DOUT", PIN_I2S_DOUT);
+
+    put("\nLoopback (needs LINE OUT jumpered to LINE IN: L to L, G to G)\n");
+    const char *err = codec_loopback_start();
+    if (err) {
+        check(false, "loopback could not start: %s", err);
+    } else {
+        vTaskDelay(pdMS_TO_TICKS(700));
+        int level = codec_mic_level();
+        codec_tone_stop();
+        codec_wait_stopped(600);
+        check(level >= 40, "tone heard on LINE IN: level %d%% (needs 40%% or more)", level);
+        if (level < 40) {
+            put("  If the jumper wires are on, the problem is between the codec output and the connectors.\n");
+        }
+    }
 
     put("\nResult: %d pass, %d FAIL\n", npass, nfail);
     *passed = npass;
