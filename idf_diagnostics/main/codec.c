@@ -19,6 +19,7 @@ static i2s_chan_handle_t tx;
 static i2s_chan_handle_t rx;
 static volatile int mic_level;
 static uint8_t mic_gain_reg = 0x44;   // 12 dB
+static uint8_t out_vol_reg = OUT_VOLUME;
 static volatile bool monitor_mode;
 static volatile bool loopback_mode;
 static volatile bool playing;
@@ -78,10 +79,10 @@ static bool codec_configure(void)
     e |= cw(0x2D, 0x00);
     e |= cw(0x1A, 0x00);   // DAC digital volume left, 0 dB
     e |= cw(0x1B, 0x00);   // DAC digital volume right, 0 dB
-    e |= cw(0x2E, OUT_VOLUME);   // LOUT1
-    e |= cw(0x2F, OUT_VOLUME);   // ROUT1
-    e |= cw(0x30, OUT_VOLUME);   // LOUT2
-    e |= cw(0x31, OUT_VOLUME);   // ROUT2
+    e |= cw(0x2E, out_vol_reg);   // LOUT1
+    e |= cw(0x2F, out_vol_reg);   // ROUT1
+    e |= cw(0x30, out_vol_reg);   // LOUT2
+    e |= cw(0x31, out_vol_reg);   // ROUT2
     if (loopback_mode) {
         e |= cw(0x03, 0x00);   // ADC powered
         e |= cw(0x09, 0x00);   // line level: PGA 0 dB
@@ -259,4 +260,15 @@ void codec_set_mic_gain(int step)
     if (step > 8) step = 8;
     mic_gain_reg = (uint8_t)(step * 0x11);
     cw(0x09, mic_gain_reg);
+}
+
+void codec_set_out_volume(int reg)
+{
+    if (reg < 0) reg = 0;
+    if (reg > 33) reg = 33;
+    out_vol_reg = (uint8_t)reg;
+    cw(0x2E, out_vol_reg);
+    cw(0x2F, out_vol_reg);
+    cw(0x30, out_vol_reg);
+    cw(0x31, out_vol_reg);
 }

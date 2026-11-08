@@ -22,6 +22,7 @@ static lv_obj_t *mon_btn_label;
 static lv_obj_t *loop_btn_label;
 static lv_obj_t *mic_bar;
 static lv_obj_t *gain_label;
+static lv_obj_t *vol_label;
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -207,6 +208,14 @@ static lv_obj_t *add_button(lv_obj_t *parent, const char *text, int y, lv_event_
     return add_button_at(parent, text, 0, y, 200, 60, cb);
 }
 
+static void volume_cb(lv_event_t *e)
+{
+    lv_obj_t *sl = (lv_obj_t *)lv_event_get_target(e);
+    int v = (int)lv_slider_get_value(sl);
+    codec_set_out_volume(v);
+    lv_label_set_text_fmt(vol_label, "Out vol %d dB", (int)((v - 30) * 3 / 2));
+}
+
 static void gain_cb(lv_event_t *e)
 {
     lv_obj_t *sl = (lv_obj_t *)lv_event_get_target(e);
@@ -249,11 +258,21 @@ void diag_ui_create(void)
     lv_label_set_text(gain_label, "Mic gain 12 dB");
     lv_obj_align(gain_label, LV_ALIGN_TOP_LEFT, 0, 234);
     lv_obj_t *gs = lv_slider_create(p1);
-    lv_obj_set_size(gs, 240, 12);
+    lv_obj_set_size(gs, 115, 12);
     lv_slider_set_range(gs, 0, 8);
     lv_slider_set_value(gs, 4, LV_ANIM_OFF);
     lv_obj_align(gs, LV_ALIGN_TOP_LEFT, 8, 262);
     lv_obj_add_event_cb(gs, gain_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    vol_label = lv_label_create(p1);
+    lv_label_set_text(vol_label, "Out vol -15 dB");
+    lv_obj_align(vol_label, LV_ALIGN_TOP_LEFT, 140, 234);
+    lv_obj_t *vs = lv_slider_create(p1);
+    lv_obj_set_size(vs, 115, 12);
+    lv_slider_set_range(vs, 0, 33);
+    lv_slider_set_value(vs, 20, LV_ANIM_OFF);
+    lv_obj_align(vs, LV_ALIGN_TOP_LEFT, 148, 262);
+    lv_obj_add_event_cb(vs, volume_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_obj_t *tb = add_button_at(p1, "Play tone", 0, 284, 130, 50, tone_cb);
     tone_btn_label = lv_obj_get_child(tb, 0);

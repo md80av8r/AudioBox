@@ -16,3 +16,4 @@ bool codec_write_reg(uint8_t reg, uint8_t val);   // for diagnostics
 // Mic input (active while the mic monitor runs)
 int codec_mic_level(void);            // 0..100, roughly -60 dB..0 dBFS, with a slow fall-off
 void codec_set_mic_gain(int step);    // 0..8 = 0..24 dB in 3 dB steps
+void codec_set_out_volume(int reg);   // 0..33: ES8388 output volume register (30 = 0 dB, 1.5 dB per step)
