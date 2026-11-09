@@ -3,6 +3,8 @@
 #include "pins_companion.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "soc/soc.h"
+#include "soc/usb_serial_jtag_reg.h"
 
 // Set to 1 if the haptic motor is an LRA, 0 for an ERM (coin/cylinder) motor.
 #define HAPTIC_IS_LRA 0
@@ -41,6 +43,7 @@ void diag_hw_init(i2c_master_bus_handle_t b)
         .pin_bit_mask = (1ULL << PIN_ANR_POWER_EN) | (1ULL << PIN_BYPASS_EN),
         .mode = GPIO_MODE_OUTPUT,
     };
+    claim_usb_pads();
     ESP_ERROR_CHECK(gpio_config(&out));
     gpio_set_level(PIN_ANR_POWER_EN, 0);
     gpio_set_level(PIN_BYPASS_EN, 0);
@@ -59,8 +62,29 @@ void diag_scan(void)
     }
 }
 
-void diag_set_anr(bool on)    { gpio_set_level(PIN_ANR_POWER_EN, on); }
-void diag_set_bypass(bool on) { gpio_set_level(PIN_BYPASS_EN, on); }
+// IO19/IO20 are also the USB D-/D+ pins. If the USB-Serial-JTAG block keeps its pad override on,
+// our GPIO output is ignored, so clear the override before every change.
+static void claim_usb_pads(void)
+{
+    CLEAR_PERI_REG_MASK(USB_SERIAL_JTAG_CONF0_REG, USB_SERIAL_JTAG_USB_PAD_ENABLE);
+}
+
+bool diag_usb_pad_override(void)
+{
+    return (READ_PERI_REG(USB_SERIAL_JTAG_CONF0_REG) & USB_SERIAL_JTAG_USB_PAD_ENABLE) != 0;
+}
+
+void diag_set_anr(bool on)
+{
+    gpio_set_level(PIN_ANR_POWER_EN, on);
+}
+
+void diag_set_bypass(bool on)
+{
+    claim_usb_pads();
+    gpio_set_direction(PIN_BYPASS_EN, GPIO_MODE_INPUT_OUTPUT);
+    gpio_set_level(PIN_BYPASS_EN, on);
+}
 
 static volatile uint8_t last_bits;
 static volatile bool last_ok;

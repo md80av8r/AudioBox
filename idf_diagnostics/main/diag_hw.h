@@ -40,3 +40,4 @@ void diag_pin_test(int mode);
 
 // Generic I2C access for the web tools: val < 0 reads one register into *out, otherwise writes val.
 bool diag_i2c_rw(uint8_t addr, uint8_t reg, int val, uint8_t *out);
+bool diag_usb_pad_override(void);   // true if the USB block is overriding IO19/IO20

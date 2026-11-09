@@ -112,6 +112,19 @@ int selftest_run(char *buf, size_t size, int *passed)
     test_pin("LRCK", PIN_I2S_LRCK);
     test_pin("DOUT", PIN_I2S_DOUT);
 
+    put("\nBypass control pin (IO20)\n");
+    check(!diag_usb_pad_override(), "USB block is not overriding IO19/IO20");
+    {
+        gpio_set_direction(PIN_BYPASS_EN, GPIO_MODE_INPUT_OUTPUT);
+        gpio_set_level(PIN_BYPASS_EN, 1);
+        esp_rom_delay_us(500);
+        int hi = gpio_get_level(PIN_BYPASS_EN);
+        gpio_set_level(PIN_BYPASS_EN, 0);
+        esp_rom_delay_us(500);
+        int lo = gpio_get_level(PIN_BYPASS_EN);
+        check(hi == 1 && lo == 0, "IO20 pad follows the output (high reads %d, low reads %d)", hi, lo);
+    }
+
     put("\nLoopback (needs LINE OUT jumpered to LINE IN: L to L, G to G)\n");
     const char *err = codec_loopback_start();
     if (err) {
