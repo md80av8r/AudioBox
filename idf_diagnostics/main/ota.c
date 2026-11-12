@@ -12,13 +12,13 @@
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "ota.h"
+#include "link.h"
 #include "codec.h"
 #include "diag_hw.h"
 #include "driver/gpio.h"
 #include "selftest.h"
 
 static httpd_handle_t server;
-static bool wifi_ready;
 static bool running;
 
 static const char page_head[] =
@@ -278,41 +278,17 @@ static esp_err_t mic_get(httpd_req_t *req)
     return httpd_resp_sendstr(req, out);
 }
 
-static bool wifi_init_once(void)
-{
-    if (wifi_ready) return true;
-    if (esp_netif_init() != ESP_OK) return false;
-    esp_err_t e = esp_event_loop_create_default();
-    if (e != ESP_OK && e != ESP_ERR_INVALID_STATE) return false;
-    esp_netif_create_default_wifi_ap();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    if (esp_wifi_init(&cfg) != ESP_OK) return false;
-    wifi_ready = true;
-    return true;
-}
-
 bool ota_start(void)
 {
     if (running) return true;
-    if (!wifi_init_once()) return false;
-
-    wifi_config_t ap = {0};
-    strcpy((char *)ap.ap.ssid, OTA_SSID);
-    strcpy((char *)ap.ap.password, OTA_PASS);
-    ap.ap.ssid_len = strlen(OTA_SSID);
-    ap.ap.channel = 6;
-    ap.ap.max_connection = 2;
-    ap.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    if (esp_wifi_set_mode(WIFI_MODE_AP) != ESP_OK) return false;
-    if (esp_wifi_set_config(WIFI_IF_AP, &ap) != ESP_OK) return false;
-    if (esp_wifi_start() != ESP_OK) return false;
+    if (!link_ap_start(OTA_SSID, OTA_PASS, LINK_CHANNEL)) return false;
 
     httpd_config_t hc = HTTPD_DEFAULT_CONFIG();
     hc.stack_size = 8192;
     hc.max_uri_handlers = 16;
     hc.recv_wait_timeout = 20;
     if (httpd_start(&server, &hc) != ESP_OK) {
-        esp_wifi_stop();
+        link_ap_stop();
         return false;
     }
     httpd_uri_t idx = {.uri = "/", .method = HTTP_GET, .handler = index_get};
@@ -339,7 +315,7 @@ void ota_stop(void)
 {
     if (!running) return;
     httpd_stop(server);
-    esp_wifi_stop();
+    link_ap_stop();
     running = false;
 }
 

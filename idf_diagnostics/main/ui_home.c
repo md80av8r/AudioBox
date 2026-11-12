@@ -5,6 +5,7 @@
 #include "diag_hw.h"
 #include "codec.h"
 #include "ui_home.h"
+#include "link.h"
 
 #define C_OK   lv_color_hex(0x1e9e50)
 #define C_WARN lv_color_hex(0xe0a020)
@@ -17,6 +18,7 @@ typedef struct {
 
 static lv_obj_t *home_scr, *settings_target;
 static tile_t t_mode, t_anr, t_mic, t_link;
+static lv_obj_t *link_peer_lbl;
 
 static void tile_set(tile_t *t, lv_color_t c, const char *state)
 {
@@ -107,7 +109,20 @@ static void home_timer_cb(lv_timer_t *t)
         lv_bar_set_value(t_mic.bar, pct, LV_ANIM_OFF);
     }
 
-    tile_set(&t_link, C_OFF, "NO LINK");   // crew link comes next
+    uint8_t fl = (act ? LINK_F_ACTIVE : 0) | (anr ? LINK_F_ANR : 0) | (codec_tone_playing() ? LINK_F_MIC : 0);
+    link_set_flags(fl);
+    if (link_connected()) {
+        int rssi = link_rssi();
+        char buf[24];
+        snprintf(buf, sizeof(buf), "LINKED %d dBm", rssi);
+        tile_set(&t_link, rssi > -60 ? C_OK : (rssi > -75 ? C_WARN : C_BAD), buf);
+        uint8_t pf = link_peer_flags();
+        snprintf(buf, sizeof(buf), "Peer: %s", (pf & LINK_F_ACTIVE) ? "ACTIVE" : "BYPASS");
+        lv_label_set_text(link_peer_lbl, buf);
+    } else {
+        tile_set(&t_link, C_OFF, "NO LINK");
+        lv_label_set_text(link_peer_lbl, "");
+    }
 }
 
 lv_obj_t *ui_home_screen(void)
@@ -145,6 +160,11 @@ lv_obj_t *ui_home_create(lv_obj_t *settings_scr)
     lv_bar_set_range(t_mic.bar, 0, 100);
     lv_bar_set_value(t_mic.bar, 0, LV_ANIM_OFF);
     lv_obj_align(t_mic.bar, LV_ALIGN_TOP_MID, 0, 205);
+
+    link_peer_lbl = lv_label_create(t_link.tile);
+    lv_obj_set_style_text_color(link_peer_lbl, lv_color_hex(0xbbbbbb), 0);
+    lv_obj_align(link_peer_lbl, LV_ALIGN_TOP_MID, 0, 205);
+    lv_label_set_text(link_peer_lbl, "");
 
     lv_obj_t *hint = lv_label_create(home_scr);
     lv_label_set_text(hint, "Tap MODE, ANR or MIC to toggle.  Gear = settings.");

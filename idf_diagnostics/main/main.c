@@ -14,6 +14,7 @@
 #include "lvgl.h"
 #include "diag_hw.h"
 #include "diag_ui.h"
+#include "link.h"
 #include "codec.h"
 
 #define LCD_W 800
@@ -117,6 +118,7 @@ void app_main(void)
         nvs = nvs_flash_init();
     }
     ESP_ERROR_CHECK(nvs);
+    link_init();   // Wi-Fi station + ESP-NOW crew link
 
     i2c_master_bus_config_t bus_cfg = {
         .i2c_port = I2C_NUM_0,
