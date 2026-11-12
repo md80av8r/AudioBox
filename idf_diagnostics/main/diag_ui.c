@@ -114,7 +114,7 @@ static void monitor_cb(lv_event_t *e)
         const char *err = codec_monitor_start();
         if (!err) {
             lv_label_set_text(mon_btn_label, "Stop monitor");
-            lv_label_set_text(status_line, "Mic monitor on: talk into the headset mic");
+            lv_label_set_text(status_line, "Mic monitor on: talk into the mic, both ears");
         } else {
             lv_label_set_text_fmt(status_line, "Monitor failed: %s", err);
         }
@@ -255,12 +255,12 @@ void diag_ui_create(void)
     lv_bar_set_value(mic_bar, 0, LV_ANIM_OFF);
     lv_obj_align(mic_bar, LV_ALIGN_TOP_LEFT, 0, 208);
     gain_label = lv_label_create(p1);
-    lv_label_set_text(gain_label, "Mic gain 12 dB");
+    lv_label_set_text(gain_label, "Mic gain 0 dB");
     lv_obj_align(gain_label, LV_ALIGN_TOP_LEFT, 0, 234);
     lv_obj_t *gs = lv_slider_create(p1);
     lv_obj_set_size(gs, 115, 12);
     lv_slider_set_range(gs, 0, 8);
-    lv_slider_set_value(gs, 4, LV_ANIM_OFF);
+    lv_slider_set_value(gs, 0, LV_ANIM_OFF);
     lv_obj_align(gs, LV_ALIGN_TOP_LEFT, 8, 262);
     lv_obj_add_event_cb(gs, gain_cb, LV_EVENT_VALUE_CHANGED, NULL);
 

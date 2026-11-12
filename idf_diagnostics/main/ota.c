@@ -193,10 +193,10 @@ static int peak_db(int p)
     return p > 0 ? (int)(20.0f * log10f((float)p / 32768.0f)) : -99;
 }
 
-// Tap or talk into the mic while this runs: it listens on each codec input in turn.
+// Talk into the mic the whole time this runs (about 10 s): it listens on each codec input in turn.
 static esp_err_t micscan_get(httpd_req_t *req)
 {
-    char out[400];
+    char out[600];
     int n = 0;
     httpd_resp_set_type(req, "text/plain");
     if (codec_tone_playing()) {
@@ -208,20 +208,28 @@ static esp_err_t micscan_get(httpd_req_t *req)
         snprintf(out, sizeof(out), "could not start: %s\n", err);
         return httpd_resp_sendstr(req, out);
     }
-    codec_write_reg(0x09, 0x88);   // 24 dB on both channels
-    static const uint8_t sel[2] = {0x00, 0x50};
-    n += snprintf(out + n, sizeof(out) - n, "Mic input scan (peak level, 0 dB = full scale)\n");
+    codec_write_reg(0x09, 0x44);              // 12 dB on both channels
+    vTaskDelay(pdMS_TO_TICKS(1500));          // let the start-up thump die away
+    n += snprintf(out + n, sizeof(out) - n,
+                  "Mic input scan (dB below full scale; avg is the steady level)\n");
+    int score[2] = {0, 0};
     for (int i = 0; i < 2; i++) {
-        codec_write_reg(0x0A, sel[i]);
-        vTaskDelay(pdMS_TO_TICKS(400));
-        codec_peaks_reset();
-        vTaskDelay(pdMS_TO_TICKS(2500));
-        int l, r;
-        codec_peaks_get(&l, &r);
-        n += snprintf(out + n, sizeof(out) - n, "input %d:  left %d dB   right %d dB\n",
-                      i + 1, peak_db(l), peak_db(r));
+        codec_set_mic_input(i + 1);
+        vTaskDelay(pdMS_TO_TICKS(700));
+        codec_stats_reset();
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        int pl, pr, rl, rr;
+        codec_stats_get(&pl, &pr, &rl, &rr);
+        score[i] = rl > rr ? rl : rr;
+        n += snprintf(out + n, sizeof(out) - n,
+                      "input %d:  left avg %d peak %d   right avg %d peak %d\n",
+                      i + 1, peak_db(rl), peak_db(pl), peak_db(rr), peak_db(pr));
     }
-    codec_write_reg(0x0A, 0x50);
+    int pick = score[1] > score[0] * 2 ? 2 : 1;
+    codec_set_mic_input(pick);
+    uint8_t v10 = 0xEE;
+    codec_read_reg(0x10, &v10);
+    n += snprintf(out + n, sizeof(out) - n, "Mic monitor will use input %d. (r10=%02X)\n", pick, v10);
     codec_tone_stop();
     return httpd_resp_sendstr(req, out);
 }

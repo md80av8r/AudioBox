@@ -18,5 +18,6 @@ int codec_mic_level(void);            // 0..100, roughly -60 dB..0 dBFS, with a 
 void codec_set_mic_gain(int step);    // 0..8 = 0..24 dB in 3 dB steps
 void codec_set_out_volume(int reg);   // 0..33: ES8388 output volume register (30 = 0 dB, 1.5 dB per step)
 bool codec_wait_stopped(int ms);   // true once the tone/monitor/loopback task has fully stopped
-void codec_peaks_reset(void);                 // raw ADC peak hold, both channels (0..32767)
-void codec_peaks_get(int *left, int *right);
+void codec_stats_reset(void);
+void codec_stats_get(int *peak_l, int *peak_r, int *rms_l, int *rms_r);   // amplitudes 0..32767
+void codec_set_mic_input(int input);   // 1 or 2: which codec input pair the mic monitor uses

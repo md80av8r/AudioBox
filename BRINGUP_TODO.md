@@ -64,3 +64,10 @@
 - Bypass switch now swaps the BYP/ACT LEDs (IO20 works with the USB pad fix firmware).
 - Keep the board off conductive surfaces: the underside shorted on the table during testing.
 - Next: mic monitor / mic level (check the BIAS solder jumper if the mic is dead).
+
+## Mic path findings
+- ES8388 ADC digital volume (reg 0x10/0x11) powers up at 0xC0 = -96 dB; firmware now sets 0 dB.
+- Mic monitor is now a digital sidetone (ADC -> ESP32 -> DAC, both ears); `/micscan` picks the codec input.
+- MIC IN needs a 3-contact aviation mic jack (mic on the ring); the BIAS solder jumper must be closed on the bench.
+- Do NOT bridge the mic relay.
+- One display (Elecrow) board does not drive IO20; keep it out of tests.
