@@ -440,12 +440,12 @@ static void mixer_create(void)
     }
 
     // Sliders
-    mx_slider(mix_scr, "Mic preamp gain", 64, 0, 8, 2, mx_gain_cb, &mx_val_gain);
-    lv_label_set_text(mx_val_gain, "6 dB");
-    mx_slider(mix_scr, "Sidetone level (headphones)", 128, -20, 30, 12, mx_side_cb, &mx_val_side);
-    lv_label_set_text(mx_val_side, "+12 dB");
-    mx_slider(mix_scr, "Output volume", 192, 0, 33, 20, mx_out_cb, &mx_val_out);
-    lv_label_set_text(mx_val_out, "-15 dB");
+    mx_slider(mix_scr, "Mic preamp gain", 64, 0, 8, 5, mx_gain_cb, &mx_val_gain);
+    lv_label_set_text(mx_val_gain, "15 dB");
+    mx_slider(mix_scr, "Sidetone level (headphones)", 128, -20, 40, 24, mx_side_cb, &mx_val_side);
+    lv_label_set_text(mx_val_side, "+24 dB");
+    mx_slider(mix_scr, "Output volume", 192, 0, 33, 24, mx_out_cb, &mx_val_out);
+    lv_label_set_text(mx_val_out, "-9 dB");
 
     // Channel source
     lv_obj_t *sl = lv_label_create(mix_scr);

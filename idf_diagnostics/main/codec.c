@@ -13,7 +13,7 @@
 #define SAMPLE_RATE  48000
 #define TONE_HZ      1000
 #define TONE_AMP     3000      // out of 32767: quiet, protects ears and the headset
-#define OUT_VOLUME   0x14      // ES8388 output volume (0x1E = 0 dB, 1.5 dB per step)
+#define OUT_VOLUME   0x18      // ES8388 output volume (0x1E = 0 dB, 1.5 dB per step)
 
 static i2c_master_dev_handle_t codec_dev;
 static i2s_chan_handle_t tx;
@@ -23,13 +23,13 @@ static volatile int hold_l, hold_r;
 static uint64_t sum_l, sum_r;
 static uint32_t sum_n;
 static uint8_t mic_sel_reg = 0x00;   // ADC input select: 0x00 = input 1, 0x50 = input 2
-static uint8_t mic_gain_reg = 0x22;   // 6 dB (the board's preamp already adds gain)
+static uint8_t mic_gain_reg = 0x55;   // 15 dB (the board's preamp already adds gain)
 static uint8_t out_vol_reg = OUT_VOLUME;
 static volatile bool monitor_mode;
 // Mic diagnostics / processing (software, applied in the sidetone path)
 static volatile int mic_src = 4;        // 0 = L+R, 1 = L only, 2 = R only, 3 = L-R (differential), 4 = auto (louder channel)
 static volatile bool mic_inv = false;   // invert polarity of the sidetone
-static volatile int mic_gain_q8 = 1024; // sidetone digital gain in Q8 (1024 = 4x = +12 dB)
+static volatile int mic_gain_q8 = 4096; // sidetone digital gain in Q8 (4096 = 16x = +24 dB)
 static volatile int pk_l, pk_r;         // decaying peak per channel (0..32768), for the meters
 static volatile int clip_hold;          // blocks left on the clip indicator
 static volatile bool mic_mute = false;
@@ -452,7 +452,7 @@ bool codec_snapshot(const int16_t **l, const int16_t **r)
 void codec_set_sidetone_db(int db)
 {
     if (db < -40) db = -40;
-    if (db > 30) db = 30;
+    if (db > 40) db = 40;
     mic_gain_q8 = (int)(256.0f * powf(10.0f, (float)db / 20.0f));
 }
 
