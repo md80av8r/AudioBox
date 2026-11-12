@@ -28,3 +28,12 @@ void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute, int 
 void codec_mic_status(char *out, size_t n);   // DC mean / rms / peak per channel, registers, error counters
 void codec_stats_reset_all(void);
 bool codec_snapshot(const int16_t **l, const int16_t **r);   // 256 raw ADC frames
+
+// Mixer controls
+void codec_set_sidetone_db(int db);     // -40..+30 dB digital gain on the monitor path
+void codec_set_mic_source(int src);     // 0=L+R 1=L 2=R 3=L-R 4=auto (louder channel)
+void codec_set_mic_invert(bool inv);
+void codec_set_mic_mute(bool mute);
+void codec_set_mic_dcblock(bool on);
+void codec_set_beep(bool on);
+void codec_meter_get(int *l, int *r, bool *clip);   // decaying peaks 0..32768 per channel

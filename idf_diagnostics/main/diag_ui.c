@@ -1,5 +1,6 @@
 // Diagnostics screen: I2C device status, control lines, expander inputs, haptic.
 #include <stdio.h>
+#include <math.h>
 #include "lvgl.h"
 #include "diag_hw.h"
 #include "diag_ui.h"
@@ -224,9 +225,272 @@ static void gain_cb(lv_event_t *e)
     lv_label_set_text_fmt(gain_label, "Mic gain %d dB", step * 3);
 }
 
+
+// ======================= Mixer page =======================
+static lv_obj_t *diag_scr, *mix_scr;
+static lv_obj_t *mx_mon_btn, *mx_mon_lbl, *mx_meter[2], *mx_db[2], *mx_clip;
+static lv_obj_t *mx_val_gain, *mx_val_side, *mx_val_out;
+static lv_obj_t *mx_src_btn[5];
+static lv_obj_t *mx_input_btn[2];
+static lv_obj_t *mx_status;
+static int mx_src = 4, mx_input = 1;
+
+static int level_pct(int pk)
+{
+    if (pk <= 0) return 0;
+    int p = (int)((20.0f * log10f((float)pk / 32768.0f) + 60.0f) / 60.0f * 100.0f);
+    return p < 0 ? 0 : (p > 100 ? 100 : p);
+}
+
+static int level_db(int pk)
+{
+    return pk > 0 ? (int)(20.0f * log10f((float)pk / 32768.0f)) : -99;
+}
+
+static void mx_set_active(lv_obj_t *b, bool on)
+{
+    lv_obj_set_style_bg_color(b, on ? lv_color_hex(0x1e9e50) : lv_color_hex(0x555555), 0);
+}
+
+static void mx_monitor_cb(lv_event_t *e)
+{
+    (void)e;
+    if (!codec_tone_playing()) {
+        const char *err = codec_monitor_start();
+        if (err) {
+            lv_label_set_text_fmt(mx_status, "Monitor failed: %s", err);
+            return;
+        }
+        codec_set_mic_input(mx_input);
+        lv_label_set_text(mx_mon_lbl, "MONITOR ON");
+        mx_set_active(mx_mon_btn, true);
+        lv_label_set_text(mx_status, "Monitor running. Talk into the mic.");
+    } else {
+        codec_tone_stop();
+        lv_label_set_text(mx_mon_lbl, "MONITOR OFF");
+        mx_set_active(mx_mon_btn, false);
+        lv_label_set_text(mx_status, "Monitor stopped");
+    }
+}
+
+static void mx_gain_cb(lv_event_t *e)
+{
+    int v = (int)lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));
+    codec_set_mic_gain(v);
+    lv_label_set_text_fmt(mx_val_gain, "%d dB", v * 3);
+}
+
+static void mx_side_cb(lv_event_t *e)
+{
+    int v = (int)lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));
+    codec_set_sidetone_db(v);
+    lv_label_set_text_fmt(mx_val_side, "%+d dB", v);
+}
+
+static void mx_out_cb(lv_event_t *e)
+{
+    int v = (int)lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));
+    codec_set_out_volume(v);
+    lv_label_set_text_fmt(mx_val_out, "%d dB", (int)((v - 30) * 3 / 2));
+}
+
+static void mx_src_cb(lv_event_t *e)
+{
+    mx_src = (int)(intptr_t)lv_event_get_user_data(e);
+    codec_set_mic_source(mx_src);
+    for (int i = 0; i < 5; i++) mx_set_active(mx_src_btn[i], i == mx_src);
+}
+
+static void mx_input_cb(lv_event_t *e)
+{
+    mx_input = (int)(intptr_t)lv_event_get_user_data(e);
+    codec_set_mic_input(mx_input);
+    for (int i = 0; i < 2; i++) mx_set_active(mx_input_btn[i], i == mx_input - 1);
+}
+
+static void mx_phase_cb(lv_event_t *e)
+{
+    codec_set_mic_invert(lv_obj_has_state((lv_obj_t *)lv_event_get_target(e), LV_STATE_CHECKED));
+}
+
+static void mx_dc_cb(lv_event_t *e)
+{
+    codec_set_mic_dcblock(lv_obj_has_state((lv_obj_t *)lv_event_get_target(e), LV_STATE_CHECKED));
+}
+
+static void mx_mute_cb(lv_event_t *e)
+{
+    codec_set_mic_mute(lv_obj_has_state((lv_obj_t *)lv_event_get_target(e), LV_STATE_CHECKED));
+}
+
+static void mx_beep_cb(lv_event_t *e)
+{
+    codec_set_beep(lv_obj_has_state((lv_obj_t *)lv_event_get_target(e), LV_STATE_CHECKED));
+}
+
+static void mx_back_cb(lv_event_t *e)
+{
+    (void)e;
+    lv_screen_load(diag_scr);
+}
+
+static void mx_open_cb(lv_event_t *e)
+{
+    (void)e;
+    lv_screen_load(mix_scr);
+}
+
+static void mx_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    if (lv_screen_active() != mix_scr) return;
+    int l, r;
+    bool clip;
+    codec_meter_get(&l, &r, &clip);
+    int pk[2] = {l, r};
+    for (int i = 0; i < 2; i++) {
+        lv_bar_set_value(mx_meter[i], level_pct(pk[i]), LV_ANIM_OFF);
+        int db = level_db(pk[i]);
+        if (db <= -99) lv_label_set_text(mx_db[i], "-inf");
+        else lv_label_set_text_fmt(mx_db[i], "%d", db);
+    }
+    lv_obj_set_style_bg_color(mx_clip, clip ? lv_color_hex(0xd33a2c) : lv_color_hex(0x444444), 0);
+    if (!codec_tone_playing()) {
+        lv_label_set_text(mx_mon_lbl, "MONITOR OFF");
+        mx_set_active(mx_mon_btn, false);
+    }
+}
+
+static lv_obj_t *mx_button(lv_obj_t *parent, const char *text, int x, int y, int w, int h, lv_event_cb_t cb, void *ud)
+{
+    lv_obj_t *b = lv_button_create(parent);
+    lv_obj_set_size(b, w, h);
+    lv_obj_set_pos(b, x, y);
+    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, ud);
+    lv_obj_t *l = lv_label_create(b);
+    lv_label_set_text(l, text);
+    lv_obj_center(l);
+    return b;
+}
+
+// One labelled slider row: name on the left, slider, value on the right.
+static lv_obj_t *mx_slider(lv_obj_t *parent, const char *name, int y, int lo, int hi, int init,
+                           lv_event_cb_t cb, lv_obj_t **val)
+{
+    lv_obj_t *n = lv_label_create(parent);
+    lv_label_set_text(n, name);
+    lv_obj_set_pos(n, 200, y);
+    lv_obj_t *sl = lv_slider_create(parent);
+    lv_obj_set_size(sl, 400, 22);
+    lv_obj_set_pos(sl, 210, y + 30);
+    lv_slider_set_range(sl, lo, hi);
+    lv_slider_set_value(sl, init, LV_ANIM_OFF);
+    lv_obj_add_event_cb(sl, cb, LV_EVENT_VALUE_CHANGED, NULL);
+    *val = lv_label_create(parent);
+    lv_obj_set_pos(*val, 640, y + 28);
+    return sl;
+}
+
+static lv_obj_t *mx_switch(lv_obj_t *parent, const char *name, int x, int y, bool on, lv_event_cb_t cb)
+{
+    lv_obj_t *n = lv_label_create(parent);
+    lv_label_set_text(n, name);
+    lv_obj_set_pos(n, x, y);
+    lv_obj_t *sw = lv_switch_create(parent);
+    lv_obj_set_pos(sw, x, y + 24);
+    if (on) lv_obj_add_state(sw, LV_STATE_CHECKED);
+    lv_obj_add_event_cb(sw, cb, LV_EVENT_VALUE_CHANGED, NULL);
+    return sw;
+}
+
+static void mixer_create(void)
+{
+    mix_scr = lv_obj_create(NULL);
+    lv_obj_remove_flag(mix_scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    mx_button(mix_scr, "< Back", 10, 8, 110, 44, mx_back_cb, NULL);
+    lv_obj_t *t = lv_label_create(mix_scr);
+    lv_label_set_text(t, "Audio Mixer");
+    lv_obj_set_style_text_font(t, &lv_font_montserrat_20, 0);
+    lv_obj_set_pos(t, 140, 18);
+    mx_mon_btn = mx_button(mix_scr, "MONITOR OFF", 560, 8, 230, 44, mx_monitor_cb, NULL);
+    mx_mon_lbl = lv_obj_get_child(mx_mon_btn, 0);
+    mx_set_active(mx_mon_btn, false);
+
+    // Meters (left side): L and R peak, dBFS under each, clip lamp on top
+    mx_clip = lv_obj_create(mix_scr);
+    lv_obj_set_size(mx_clip, 96, 14);
+    lv_obj_set_pos(mx_clip, 30, 64);
+    lv_obj_set_style_bg_color(mx_clip, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_border_width(mx_clip, 0, 0);
+    lv_obj_t *cl = lv_label_create(mix_scr);
+    lv_label_set_text(cl, "CLIP");
+    lv_obj_set_pos(cl, 140, 62);
+    for (int i = 0; i < 2; i++) {
+        mx_meter[i] = lv_bar_create(mix_scr);
+        lv_obj_set_size(mx_meter[i], 40, 260);
+        lv_obj_set_pos(mx_meter[i], 30 + i * 56, 86);
+        lv_bar_set_range(mx_meter[i], 0, 100);
+        lv_obj_t *nm = lv_label_create(mix_scr);
+        lv_label_set_text(nm, i ? "R" : "L");
+        lv_obj_set_pos(nm, 44 + i * 56, 350);
+        mx_db[i] = lv_label_create(mix_scr);
+        lv_label_set_text(mx_db[i], "-inf");
+        lv_obj_set_pos(mx_db[i], 28 + i * 56, 374);
+    }
+
+    // Sliders
+    mx_slider(mix_scr, "Mic preamp gain", 64, 0, 8, 2, mx_gain_cb, &mx_val_gain);
+    lv_label_set_text(mx_val_gain, "6 dB");
+    mx_slider(mix_scr, "Sidetone level (headphones)", 128, -20, 30, 12, mx_side_cb, &mx_val_side);
+    lv_label_set_text(mx_val_side, "+12 dB");
+    mx_slider(mix_scr, "Output volume", 192, 0, 33, 20, mx_out_cb, &mx_val_out);
+    lv_label_set_text(mx_val_out, "-15 dB");
+
+    // Channel source
+    lv_obj_t *sl = lv_label_create(mix_scr);
+    lv_label_set_text(sl, "Mic channel");
+    lv_obj_set_pos(sl, 200, 258);
+    const char *names[5] = {"L+R", "L", "R", "L-R", "Auto"};
+    for (int i = 0; i < 5; i++) {
+        mx_src_btn[i] = mx_button(mix_scr, names[i], 200 + i * 98, 284, 90, 44, mx_src_cb, (void *)(intptr_t)i);
+        mx_set_active(mx_src_btn[i], i == mx_src);
+    }
+    lv_obj_t *il = lv_label_create(mix_scr);
+    lv_label_set_text(il, "Codec input");
+    lv_obj_set_pos(il, 200, 340);
+    mx_input_btn[0] = mx_button(mix_scr, "Input 1", 200, 364, 90, 44, mx_input_cb, (void *)(intptr_t)1);
+    mx_input_btn[1] = mx_button(mix_scr, "Input 2", 298, 364, 90, 44, mx_input_cb, (void *)(intptr_t)2);
+    mx_set_active(mx_input_btn[0], true);
+    mx_set_active(mx_input_btn[1], false);
+
+    // Switches
+    mx_switch(mix_scr, "Phase invert", 420, 340, false, mx_phase_cb);
+    mx_switch(mix_scr, "DC block", 540, 340, true, mx_dc_cb);
+    mx_switch(mix_scr, "Mute", 640, 340, false, mx_mute_cb);
+    mx_switch(mix_scr, "Test beep", 710, 258, false, mx_beep_cb);
+
+    mx_status = lv_label_create(mix_scr);
+    lv_label_set_text(mx_status, "Tap MONITOR ON, then talk");
+    lv_obj_set_pos(mx_status, 200, 440);
+
+    lv_timer_create(mx_timer_cb, 50, NULL);
+}
+
 void diag_ui_create(void)
 {
     lv_obj_t *scr = lv_screen_active();
+    diag_scr = scr;
+    mixer_create();
+    {
+        lv_obj_t *mb = lv_button_create(scr);
+        lv_obj_set_size(mb, 170, 40);
+        lv_obj_align(mb, LV_ALIGN_TOP_RIGHT, -16, 6);
+        lv_obj_add_event_cb(mb, mx_open_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_t *ml2 = lv_label_create(mb);
+        lv_label_set_text(ml2, "Audio Mixer >");
+        lv_obj_center(ml2);
+    }
 
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Audio Companion - Diagnostics");

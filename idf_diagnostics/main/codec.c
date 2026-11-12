@@ -23,13 +23,15 @@ static volatile int hold_l, hold_r;
 static uint64_t sum_l, sum_r;
 static uint32_t sum_n;
 static uint8_t mic_sel_reg = 0x00;   // ADC input select: 0x00 = input 1, 0x50 = input 2
-static uint8_t mic_gain_reg = 0x00;   // 0 dB (the board's preamp already adds gain)
+static uint8_t mic_gain_reg = 0x22;   // 6 dB (the board's preamp already adds gain)
 static uint8_t out_vol_reg = OUT_VOLUME;
 static volatile bool monitor_mode;
 // Mic diagnostics / processing (software, applied in the sidetone path)
-static volatile int mic_src = 0;        // 0 = L+R, 1 = L only, 2 = R only, 3 = L-R (differential)
+static volatile int mic_src = 4;        // 0 = L+R, 1 = L only, 2 = R only, 3 = L-R (differential), 4 = auto (louder channel)
 static volatile bool mic_inv = false;   // invert polarity of the sidetone
-static volatile int mic_sw_gain = 1;    // extra digital gain, 1..16x
+static volatile int mic_gain_q8 = 1024; // sidetone digital gain in Q8 (1024 = 4x = +12 dB)
+static volatile int pk_l, pk_r;         // decaying peak per channel (0..32768), for the meters
+static volatile int clip_hold;          // blocks left on the clip indicator
 static volatile bool mic_mute = false;
 static volatile bool mic_beep = false;   // mix a 1 kHz beep into the sidetone (proves the output path)
 static volatile bool mic_dcblock = true;
@@ -145,6 +147,7 @@ static void tone_task(void *arg)
     int32_t dcl = 0, dcr = 0;                // one-pole DC trackers (Q8)
     int errs_in_row = 0;
     uint32_t beep_i = 0;
+    int32_t ea_l = 0, ea_r = 0;              // smoothed |level| per channel for auto source
     while (playing) {
         size_t written = 0, got = 0;
         if (monitor_mode || loopback_mode) {
@@ -164,7 +167,7 @@ static void tone_task(void *arg)
             }
             errs_in_row = 0;
             if (got < sizeof(rbuf)) rd_short++;
-            int peak = 0;
+            int peak = 0, bpl = 0, bpr = 0;
             size_t frames = got / 4;
             frames_total += frames;
             for (size_t i = 0; i < frames; i++) {
@@ -178,6 +181,8 @@ static void tone_task(void *arg)
                 if (ar > hold_r) hold_r = ar;
                 if (al > peak) peak = al;
                 if (ar > peak) peak = ar;
+                if (al > bpl) bpl = al;
+                if (ar > bpr) bpr = ar;
                 if (snap_req > 0) {
                     snap[0][snap_pos] = (int16_t)l;
                     snap[1][snap_pos] = (int16_t)r;
@@ -192,13 +197,16 @@ static void tone_task(void *arg)
                         r -= dcr >> 8;
                     }
                     int v;
+                    ea_l += ((l < 0 ? -l : l) * 256 - ea_l) >> 11;
+                    ea_r += ((r < 0 ? -r : r) * 256 - ea_r) >> 11;
                     switch (mic_src) {
+                    case 4:  v = ea_l >= ea_r ? l : r; break;
                     case 1:  v = l; break;
                     case 2:  v = r; break;
                     case 3:  v = l - r; break;
                     default: v = l + r; break;
                     }
-                    v *= mic_sw_gain;
+                    v = (int)(((int64_t)v * mic_gain_q8) >> 8);
                     if (mic_inv) v = -v;
                     if (mic_mute) v = 0;
                     if (mic_beep) v += (int)(TONE_AMP * sinf(2.0f * (float)M_PI * (beep_i++ % N) / N));
@@ -209,6 +217,10 @@ static void tone_task(void *arg)
                 }
             }
             sum_n += (uint32_t)frames;
+            pk_l = bpl > pk_l ? bpl : pk_l - (pk_l >> 8);
+            pk_r = bpr > pk_r ? bpr : pk_r - (pk_r >> 8);
+            if (bpl >= 32700 || bpr >= 32700) clip_hold = 770;
+            else if (clip_hold > 0) clip_hold--;
             int lvl = 0;
             if (peak > 0) {
                 float db = 20.0f * log10f((float)peak / 32768.0f);
@@ -389,9 +401,9 @@ void codec_set_mic_input(int input)
 void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute, int beep)
 {
     if (beep >= 0) mic_beep = beep != 0;
-    if (src >= 0 && src <= 3) mic_src = src;
+    if (src >= 0 && src <= 4) mic_src = src;
     if (inv >= 0) mic_inv = inv != 0;
-    if (sw_gain >= 1 && sw_gain <= 16) mic_sw_gain = sw_gain;
+    if (sw_gain >= 1 && sw_gain <= 16) mic_gain_q8 = sw_gain * 256;
     if (dcblock >= 0) mic_dcblock = dcblock != 0;
     if (mute >= 0) mic_mute = mute != 0;
 }
@@ -413,7 +425,7 @@ void codec_mic_status(char *out, size_t n)
         "errors: read=%u short=%u write=%u\n",
         (int)playing, (unsigned)frames_total, (unsigned)sum_n,
         (int)(dc_sum_l / cnt), rl, pl, (int)(dc_sum_r / cnt), rr, pr,
-        mic_src, mic_inv, mic_sw_gain, mic_dcblock, mic_mute, mic_beep,
+        mic_src, mic_inv, mic_gain_q8 / 256, mic_dcblock, mic_mute, mic_beep,
         r03, r09, r0a, r10, r11, (unsigned)rd_err, (unsigned)rd_short, (unsigned)wr_err);
 }
 
@@ -434,4 +446,26 @@ bool codec_snapshot(const int16_t **l, const int16_t **r)
     *l = snap[0];
     *r = snap[1];
     return true;
+}
+
+// ---- mixer controls (used by the touchscreen mixer page) ----
+void codec_set_sidetone_db(int db)
+{
+    if (db < -40) db = -40;
+    if (db > 30) db = 30;
+    mic_gain_q8 = (int)(256.0f * powf(10.0f, (float)db / 20.0f));
+}
+
+void codec_set_mic_source(int src) { codec_mic_config(src, -1, -1, -1, -1, -1); }
+void codec_set_mic_invert(bool inv) { codec_mic_config(-1, inv, -1, -1, -1, -1); }
+void codec_set_mic_mute(bool mute) { codec_mic_config(-1, -1, -1, -1, mute, -1); }
+void codec_set_mic_dcblock(bool on) { codec_mic_config(-1, -1, -1, on, -1, -1); }
+void codec_set_beep(bool on) { codec_mic_config(-1, -1, -1, -1, -1, on); }
+
+// Decaying peak per channel, 0..32768, and whether either channel clipped in the last second.
+void codec_meter_get(int *l, int *r, bool *clip)
+{
+    *l = pk_l;
+    *r = pk_r;
+    *clip = clip_hold > 0;
 }
