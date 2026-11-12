@@ -90,3 +90,4 @@
 - ES8388 ADC L/R data slot order was seen to vary between monitor starts (loud channel moved L<->R): add test point/layout check; firmware uses Auto channel select as a workaround.
 - Add test points: MIC bias node, codec LIN1/RIN1, +12 V rail, so bias and noise can be probed without rework.
 - Consider a series jumper or footprint for BIAS (resistor option) instead of a solder bridge.
+- Mechanical: the two zip-tie slots next to the LEMO plug need to be rotated 90 degrees.
