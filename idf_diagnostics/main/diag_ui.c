@@ -7,6 +7,7 @@
 #include "ota.h"
 #include "codec.h"
 #include "selftest.h"
+#include "ui_home.h"
 #include <stdlib.h>
 
 #define COL_OK  lv_color_hex(0x1e9e50)
@@ -24,6 +25,7 @@ static lv_obj_t *loop_btn_label;
 static lv_obj_t *mic_bar;
 static lv_obj_t *gain_label;
 static lv_obj_t *vol_label;
+static lv_obj_t *set_status, *set_update_lbl;   // settings-menu copies of the update status
 
 static const char *exp_names[8] = {
     "Encoder A", "Encoder B", "Power button", "Inner enc A",
@@ -154,13 +156,18 @@ static void update_cb(lv_event_t *e)
         if (ota_start()) {
             lv_label_set_text(update_btn_label, "Stop update mode");
             lv_label_set_text(status_line, "Wi-Fi " OTA_SSID " / " OTA_PASS " -> 192.168.4.1");
+            lv_label_set_text(set_update_lbl, "Stop update mode");
+            lv_label_set_text(set_status, "Join Wi-Fi " OTA_SSID " (" OTA_PASS "), open http://192.168.4.1");
         } else {
             lv_label_set_text(status_line, "Update mode failed to start");
+            lv_label_set_text(set_status, "Update mode failed to start");
         }
     } else {
         ota_stop();
         lv_label_set_text(update_btn_label, "Firmware update");
         lv_label_set_text(status_line, "Update mode off");
+        lv_label_set_text(set_update_lbl, "Firmware update");
+        lv_label_set_text(set_status, "Update mode off");
     }
 }
 
@@ -227,7 +234,7 @@ static void gain_cb(lv_event_t *e)
 
 
 // ======================= Mixer page =======================
-static lv_obj_t *diag_scr, *mix_scr;
+static lv_obj_t *diag_scr, *mix_scr, *settings_scr, *mix_return;
 static lv_obj_t *mx_mon_btn, *mx_mon_lbl, *mx_meter[2], *mx_db[2], *mx_clip;
 static lv_obj_t *mx_val_gain, *mx_val_side, *mx_val_out;
 static lv_obj_t *mx_src_btn[5];
@@ -331,12 +338,13 @@ static void mx_beep_cb(lv_event_t *e)
 static void mx_back_cb(lv_event_t *e)
 {
     (void)e;
-    lv_screen_load(diag_scr);
+    lv_screen_load(mix_return ? mix_return : settings_scr);
 }
 
 static void mx_open_cb(lv_event_t *e)
 {
     (void)e;
+    mix_return = lv_screen_active();
     lv_screen_load(mix_scr);
 }
 
@@ -477,11 +485,52 @@ static void mixer_create(void)
     lv_timer_create(mx_timer_cb, 50, NULL);
 }
 
+// ======================= Settings menu =======================
+static void go_home_cb(lv_event_t *e) { (void)e; lv_screen_load(ui_home_screen()); }
+static void go_settings_cb(lv_event_t *e) { (void)e; lv_screen_load(settings_scr); }
+static void go_diag_cb(lv_event_t *e) { (void)e; lv_screen_load(diag_scr); }
+
+static lv_obj_t *settings_button(lv_obj_t *parent, const char *text, int y, lv_event_cb_t cb)
+{
+    lv_obj_t *b = lv_button_create(parent);
+    lv_obj_set_size(b, 420, 64);
+    lv_obj_align(b, LV_ALIGN_TOP_MID, 0, y);
+    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *l = lv_label_create(b);
+    lv_label_set_text(l, text);
+    lv_obj_set_style_text_font(l, &lv_font_montserrat_20, 0);
+    lv_obj_center(l);
+    return b;
+}
+
+static void settings_create(void)
+{
+    settings_scr = lv_obj_create(NULL);
+    lv_obj_remove_flag(settings_scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *back = add_button_at(settings_scr, LV_SYMBOL_LEFT " Home", 10, 8, 130, 44, go_home_cb);
+    (void)back;
+    lv_obj_t *t = lv_label_create(settings_scr);
+    lv_label_set_text(t, LV_SYMBOL_SETTINGS "  Settings");
+    lv_obj_set_style_text_font(t, &lv_font_montserrat_20, 0);
+    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 18);
+
+    settings_button(settings_scr, "Audio Mixer", 90, mx_open_cb);
+    settings_button(settings_scr, "Diagnostics", 170, go_diag_cb);
+    lv_obj_t *ub = settings_button(settings_scr, "Firmware update", 250, update_cb);
+    set_update_lbl = lv_obj_get_child(ub, 0);
+
+    set_status = lv_label_create(settings_scr);
+    lv_label_set_text(set_status, "");
+    lv_obj_align(set_status, LV_ALIGN_BOTTOM_LEFT, 16, -12);
+}
+
 void diag_ui_create(void)
 {
-    lv_obj_t *scr = lv_screen_active();
+    lv_obj_t *scr = lv_obj_create(NULL);
     diag_scr = scr;
     mixer_create();
+    settings_create();
+    add_button_at(scr, LV_SYMBOL_LEFT " Settings", 10, 6, 150, 40, go_settings_cb);
     {
         lv_obj_t *mb = lv_button_create(scr);
         lv_obj_set_size(mb, 170, 40);
@@ -495,7 +544,7 @@ void diag_ui_create(void)
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Audio Companion - Diagnostics");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_LEFT, 16, 12);
+    lv_obj_align(title, LV_ALIGN_TOP_LEFT, 180, 12);
 
     // Column 1: I2C devices
     lv_obj_t *p1 = make_panel(scr, "I2C devices", 10, 290);
@@ -589,4 +638,7 @@ void diag_ui_create(void)
     enc_line = lv_label_create(scr);
     lv_label_set_text(enc_line, "");
     lv_obj_align(enc_line, LV_ALIGN_BOTTOM_RIGHT, -16, -12);
+
+    ui_home_create(settings_scr);
+    lv_screen_load(ui_home_screen());
 }

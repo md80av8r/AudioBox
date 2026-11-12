@@ -108,3 +108,8 @@ Moved: the master v20 change list is `audio_companion/RESPIN_CHECKLIST.md` (sing
 - Measured: M to G = 12.7 V unloaded, 6.2 V with headset in MIC IN (~6.6 mA). Sidetone heard, works.
 - Caution: bench only. In relay rest state MIC_RAW goes to the aircraft mic jack, so do not connect to an aircraft with this resistor fitted. No filter cap on the bias yet (add 10-47 uF to AGND if boost noise shows up).
 - Next-rev fixes for this: see `audio_companion/RESPIN_CHECKLIST.md`.
+
+## UI work (2026-11-12)
+- Home screen added (idf_diagnostics/main/ui_home.c): status tiles MODE (tap toggles IO20, high = ACTIVE), ANR (tap toggles IO8), MIC (tap = mic monitor, with level bar), LINK (placeholder, "NO LINK"). Gear button opens Settings: Audio Mixer, Diagnostics, Firmware update. Old diagnostics screen is kept as-is behind Settings.
+- Plan: (1) feel/polish the UI, (2) ESP-NOW link between two boxes (heartbeat + status, link tile with RSSI), (3) crew voice audio over the link (mic -> u-law -> ESP-NOW -> jitter buffer -> mix into headphones). Wi-Fi OTA hotspot and ESP-NOW must share one channel.
+- MODE tile polarity (IO20 high = ACTIVE) follows the planned ACTIVE_EN rename; the real relay state is not sensed yet. Confirm on the board.

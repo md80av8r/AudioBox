@@ -75,13 +75,19 @@ bool diag_usb_pad_override(void)
     return (READ_PERI_REG(USB_SERIAL_JTAG_CONF0_REG) & USB_SERIAL_JTAG_USB_PAD_ENABLE) != 0;
 }
 
+static volatile bool anr_state, byp_state;
+bool diag_anr_get(void) { return anr_state; }
+bool diag_bypass_get(void) { return byp_state; }
+
 void diag_set_anr(bool on)
 {
+    anr_state = on;
     gpio_set_level(PIN_ANR_POWER_EN, on);
 }
 
 void diag_set_bypass(bool on)
 {
+    byp_state = on;
     claim_usb_pads();
     gpio_set_direction(PIN_BYPASS_EN, GPIO_MODE_INPUT_OUTPUT);
     gpio_set_level(PIN_BYPASS_EN, on);

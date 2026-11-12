@@ -26,6 +26,8 @@ const diag_dev_t *diag_dev(int i);
 void diag_scan(void);
 void diag_set_anr(bool on);
 void diag_set_bypass(bool on);
+bool diag_anr_get(void);       // last commanded ANR_POWER_EN state
+bool diag_bypass_get(void);    // last commanded IO20 level (high = processing ACTIVE, low = BYPASS)
 bool diag_expander_read(uint8_t *bits);   // latest polled value; false if the expander does not answer
 
 // Dual concentric encoder, decoded from the expander by a 2 ms polling task.
