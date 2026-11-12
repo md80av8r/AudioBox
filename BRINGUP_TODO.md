@@ -71,3 +71,11 @@
 - MIC IN needs a 3-contact aviation mic jack (mic on the ring); the BIAS solder jumper must be closed on the bench.
 - Do NOT bridge the mic relay.
 - One display (Elecrow) board does not drive IO20; keep it out of tests.
+
+## Mic bring-up result (diagnostics firmware, `/mic` page)
+- Sidetone path verified: with the aviation handheld supplying bias (PTT pressed) the voice is heard in both ears, with constant static.
+- Without handheld bias the left ADC channel shows constant noise (rms ~1200-2000, no change when talking): the mic is not powered, hardware bias issue, not firmware.
+- Right channel is dead (mono mic on left); use `src=1`.
+- `/mic?input=1&gain=3&src=1&sw=4&inv=0&dc=1&mute=0&beep=0&ms=6000` for level/DC/regs. `beep=1` proves the output path.
+- Open: codec regs read back as all `09` once while the handheld was connected (possible glitch); re-check.
+- Open: measure DC at the MIC IN ring with no handheld; fix bias (12 V rail) next rev or via rework.
