@@ -58,3 +58,9 @@
 - Bench workaround on a built board: solder-bridge HEADPHONE_BYPASS-1 pins 3-4 and 5-6
   (amp permanently on PHONES; removes the fail-safe, bench use only).
 - Also still open: BTN_IN on PCA9534 INT pin (U3.13); ACT LED / IO20 not going high.
+
+## Verified after the relay bridge (board A)
+- HP relay pins 3-4 and 5-6 solder-bridged: 1 kHz tone heard in both earcups on PHONES.
+- Bypass switch now swaps the BYP/ACT LEDs (IO20 works with the USB pad fix firmware).
+- Keep the board off conductive surfaces: the underside shorted on the table during testing.
+- Next: mic monitor / mic level (check the BIAS solder jumper if the mic is dead).
