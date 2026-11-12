@@ -18,7 +18,7 @@ typedef struct {
 
 static lv_obj_t *home_scr, *settings_target;
 static tile_t t_mode, t_anr, t_mic, t_link;
-static lv_obj_t *link_peer_lbl;
+static lv_obj_t *link_peer_lbl, *hint_ref;
 
 static void tile_set(tile_t *t, lv_color_t c, const char *state)
 {
@@ -31,8 +31,8 @@ static void tile_set(tile_t *t, lv_color_t c, const char *state)
 static void make_tile(tile_t *t, lv_obj_t *parent, int x, const char *icon, const char *name, lv_event_cb_t cb)
 {
     t->tile = lv_obj_create(parent);
-    lv_obj_set_size(t->tile, 180, 270);
-    lv_obj_set_pos(t->tile, x, 100);
+    lv_obj_set_size(t->tile, 180, 240);
+    lv_obj_set_pos(t->tile, x, 80);
     lv_obj_remove_flag(t->tile, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(t->tile, 18, 0);
     lv_obj_set_style_border_width(t->tile, 4, 0);
@@ -72,11 +72,31 @@ static void anr_cb(lv_event_t *e)
 static void mic_cb(lv_event_t *e)
 {
     (void)e;
-    if (codec_tone_playing()) {
+    if (!codec_tone_playing()) {             // OFF -> LIVE (sidetone only)
+        codec_set_intercom(false);
+        if (!codec_monitor_start()) codec_set_mic_input(1);
+    } else if (!codec_intercom_on()) {       // LIVE -> COMMS (sidetone + crew voice over the link)
+        codec_set_intercom(true);
+    } else {                                 // COMMS -> OFF
+        codec_set_intercom(false);
         codec_tone_stop();
-    } else if (!codec_monitor_start()) {
-        codec_set_mic_input(1);
     }
+}
+
+static lv_obj_t *gain_lbl, *vol_lbl;
+
+static void micgain_cb(lv_event_t *e)
+{
+    int step = lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));   // 0..8 = 0..24 dB in 3 dB steps
+    codec_set_mic_gain(step);
+    lv_label_set_text_fmt(gain_lbl, "MIC GAIN  +%d dB", step * 3);
+}
+
+static void crewvol_cb(lv_event_t *e)
+{
+    int db = lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));     // -30..+12 dB on the peer's voice
+    codec_set_remote_volume_db(db);
+    lv_label_set_text_fmt(vol_lbl, "CREW VOLUME  %+d dB", db);
 }
 
 static void gear_cb(lv_event_t *e)
@@ -104,12 +124,12 @@ static void home_timer_cb(lv_timer_t *t)
         tile_set(&t_mic, C_OFF, "OFF");
         lv_bar_set_value(t_mic.bar, 0, LV_ANIM_OFF);
     } else {
-        tile_set(&t_mic, clip ? C_BAD : C_OK, clip ? "CLIP" : "LIVE");
+        tile_set(&t_mic, clip ? C_BAD : (codec_intercom_on() ? C_OK : C_WARN), clip ? "CLIP" : (codec_intercom_on() ? "COMMS" : "LIVE"));
         int pct = pk * 100 / 32768;
         lv_bar_set_value(t_mic.bar, pct, LV_ANIM_OFF);
     }
 
-    uint8_t fl = (act ? LINK_F_ACTIVE : 0) | (anr ? LINK_F_ANR : 0) | (codec_tone_playing() ? LINK_F_MIC : 0);
+    uint8_t fl = (act ? LINK_F_ACTIVE : 0) | (anr ? LINK_F_ANR : 0) | (codec_tone_playing() ? LINK_F_MIC : 0) | (codec_intercom_on() ? LINK_F_COMMS : 0);
     link_set_flags(fl);
     if (link_connected()) {
         int rssi = link_rssi();
@@ -166,8 +186,29 @@ lv_obj_t *ui_home_create(lv_obj_t *settings_scr)
     lv_obj_align(link_peer_lbl, LV_ALIGN_TOP_MID, 0, 205);
     lv_label_set_text(link_peer_lbl, "");
 
+    gain_lbl = lv_label_create(home_scr);
+    lv_label_set_text(gain_lbl, "MIC GAIN  +0 dB");
+    lv_obj_set_pos(gain_lbl, 20, 335);
+    lv_obj_t *gs = lv_slider_create(home_scr);
+    lv_obj_set_size(gs, 330, 22);
+    lv_obj_set_pos(gs, 30, 370);
+    lv_slider_set_range(gs, 0, 8);
+    lv_slider_set_value(gs, 0, LV_ANIM_OFF);
+    lv_obj_add_event_cb(gs, micgain_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    vol_lbl = lv_label_create(home_scr);
+    lv_label_set_text(vol_lbl, "CREW VOLUME  +0 dB");
+    lv_obj_set_pos(vol_lbl, 420, 335);
+    lv_obj_t *vs = lv_slider_create(home_scr);
+    lv_obj_set_size(vs, 330, 22);
+    lv_obj_set_pos(vs, 430, 370);
+    lv_slider_set_range(vs, -30, 12);
+    lv_slider_set_value(vs, 0, LV_ANIM_OFF);
+    lv_obj_add_event_cb(vs, crewvol_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
     lv_obj_t *hint = lv_label_create(home_scr);
-    lv_label_set_text(hint, "Tap MODE, ANR or MIC to toggle.  Gear = settings.");
+    lv_label_set_text(hint, "MIC tile: LIVE = sidetone, COMMS = crew intercom (always open), OFF.");
+    hint_ref = hint;
     lv_obj_set_style_text_color(hint, lv_color_hex(0x888888), 0);
     lv_obj_align(hint, LV_ALIGN_BOTTOM_LEFT, 20, -20);
 

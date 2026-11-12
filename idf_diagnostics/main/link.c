@@ -14,6 +14,10 @@ static const char *TAG = "link";
 #define PKT_MAGIC0 0xAB
 #define PKT_MAGIC1 0x01   // protocol version
 #define PKT_HELLO  0x01
+#define PKT_AUDIO  0x02
+#define RING       4096          // samples, power of two
+#define PREFILL    480           // 30 ms of 16 kHz audio before playback starts
+#define MAXBUF     1600          // above 100 ms buffered: drop back to PREFILL (bounds latency, absorbs clock drift)
 #define LINK_TIMEOUT_US 2500000
 
 typedef struct __attribute__((packed)) {
@@ -26,6 +30,11 @@ static volatile uint8_t local_flags, peer_flags;
 static volatile int64_t peer_seen_us;
 static volatile int peer_rssi = -127;
 static volatile uint32_t rx_count;
+static int16_t ring[RING];
+static volatile uint32_t rw, rr;
+static bool primed;
+static volatile uint32_t a_rx, a_drop, a_under;
+static uint16_t audio_seq;
 static const uint8_t bcast[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 bool link_wifi_prepare(void)
@@ -43,16 +52,43 @@ bool link_wifi_prepare(void)
     return true;
 }
 
+uint8_t link_ulaw_encode(int16_t pcm)
+{
+    int s = pcm, sign = (s >> 8) & 0x80;
+    if (sign) s = -s;
+    if (s > 32635) s = 32635;
+    s += 0x84;
+    int ex = 7;
+    for (int m = 0x4000; (s & m) == 0 && ex > 0; ex--, m >>= 1) {}
+    int mant = (s >> (ex + 3)) & 0x0F;
+    return (uint8_t)~(sign | (ex << 4) | mant);
+}
+
+static int16_t ulaw_decode(uint8_t u)
+{
+    u = ~u;
+    int ex = (u >> 4) & 7, mant = u & 0x0F;
+    int s = (((mant << 3) + 0x84) << ex) - 0x84;
+    return (int16_t)((u & 0x80) ? -s : s);
+}
+
 static void recv_cb(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
     if (len < (int)sizeof(hello_pkt_t)) return;
     const hello_pkt_t *p = (const hello_pkt_t *)data;
     if (p->magic0 != PKT_MAGIC0 || p->magic1 != PKT_MAGIC1) return;
-    if (p->type == PKT_HELLO) {
+    if (p->type == PKT_HELLO || p->type == PKT_AUDIO) {
         peer_flags = p->flags;
         peer_rssi = info->rx_ctrl ? info->rx_ctrl->rssi : -127;
         peer_seen_us = esp_timer_get_time();
         rx_count++;
+    }
+    if (p->type == PKT_AUDIO && len >= (int)sizeof(hello_pkt_t) + LINK_AUDIO_SAMPLES) {
+        const uint8_t *u = data + sizeof(hello_pkt_t);
+        uint32_t w = rw;
+        for (int i = 0; i < LINK_AUDIO_SAMPLES; i++) ring[(w + i) & (RING - 1)] = ulaw_decode(u[i]);
+        rw = w + LINK_AUDIO_SAMPLES;
+        a_rx++;
     }
 }
 
@@ -84,6 +120,8 @@ void link_init(void)
     peer.ifidx = WIFI_IF_STA;
     peer.encrypt = false;
     esp_now_add_peer(&peer);
+    esp_now_rate_config_t rc = {.phymode = WIFI_PHY_MODE_11G, .rate = WIFI_PHY_RATE_24M};   // faster than the 1 Mbit/s default: less airtime per voice packet
+    esp_now_set_peer_rate_config(bcast, &rc);
     xTaskCreate(hello_task, "link_hello", 3072, NULL, 4, NULL);
     link_up = true;
     ESP_LOGI(TAG, "link up on channel %d", LINK_CHANNEL);
@@ -108,6 +146,49 @@ bool link_ap_start(const char *ssid, const char *pass, int channel)
 void link_ap_stop(void)
 {
     esp_wifi_set_mode(WIFI_MODE_STA);
+}
+
+void link_send_audio(const uint8_t *ulaw)
+{
+    uint8_t buf[sizeof(hello_pkt_t) + LINK_AUDIO_SAMPLES];
+    hello_pkt_t h = {PKT_MAGIC0, PKT_MAGIC1, PKT_AUDIO, local_flags, audio_seq++};
+    memcpy(buf, &h, sizeof(h));
+    memcpy(buf + sizeof(h), ulaw, LINK_AUDIO_SAMPLES);
+    esp_now_send(bcast, buf, sizeof(buf));
+}
+
+int link_audio_read(int16_t *out, int max)
+{
+    uint32_t w = rw, r = rr, avail = w - r;
+    if (!primed) {
+        if (avail < PREFILL) return 0;
+        primed = true;
+    }
+    if (avail == 0) {
+        primed = false;
+        a_under++;
+        return 0;
+    }
+    if (avail > MAXBUF) {
+        r = w - PREFILL;
+        avail = PREFILL;
+        a_drop++;
+    }
+    int n = (int)avail < max ? (int)avail : max;
+    for (int i = 0; i < n; i++) out[i] = ring[(r + i) & (RING - 1)];
+    rr = r + n;
+    return n;
+}
+
+void link_audio_reset(void)
+{
+    rr = rw;
+    primed = false;
+}
+
+void link_audio_stats(uint32_t *rx_pkts, uint32_t *drops, uint32_t *underruns)
+{
+    *rx_pkts = a_rx; *drops = a_drop; *underruns = a_under;
 }
 
 void link_set_flags(uint8_t flags) { local_flags = flags; }

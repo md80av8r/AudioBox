@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2s_std.h"
+#include "link.h"
 #include "codec.h"
 #include "pins_companion.h"
 
@@ -29,6 +30,8 @@ static volatile bool monitor_mode;
 // Mic diagnostics / processing (software, applied in the sidetone path)
 static volatile int mic_src = 4;        // 0 = L+R, 1 = L only, 2 = R only, 3 = L-R (differential), 4 = auto (louder channel)
 static volatile bool mic_inv = false;   // invert polarity of the sidetone
+static volatile bool intercom;           // crew voice over the link
+static volatile int rx_gain_q8 = 256;    // peer voice gain in Q8
 static volatile int mic_gain_q8 = 256;  // sidetone digital gain in Q8 (256 = 1x = 0 dB)
 static volatile int pk_l, pk_r;         // decaying peak per channel (0..32768), for the meters
 static volatile int clip_hold;          // blocks left on the clip indicator
@@ -148,6 +151,11 @@ static void tone_task(void *arg)
     int errs_in_row = 0;
     uint32_t beep_i = 0;
     int32_t ea_l = 0, ea_r = 0;              // smoothed |level| per channel for auto source
+    int tx_acc = 0, tx_n3 = 0, txn = 0;      // 48 kHz -> 16 kHz decimation for the link
+    uint8_t txbuf[LINK_AUDIO_SAMPLES];
+    int16_t rcache[32];
+    int rcn = 0, rci = 0, rprev = 0, rcur = 0, rph = 0;
+    bool ic_was_on = false;
     while (playing) {
         size_t written = 0, got = 0;
         if (monitor_mode || loopback_mode) {
@@ -206,9 +214,40 @@ static void tone_task(void *arg)
                     case 3:  v = l - r; break;
                     default: v = l + r; break;
                     }
+                    int vtx = mic_mute ? 0 : (mic_inv ? -v : v);
                     v = (int)(((int64_t)v * mic_gain_q8) >> 8);
                     if (mic_inv) v = -v;
                     if (mic_mute) v = 0;
+                    if (intercom) {
+                        if (!ic_was_on) {
+                            ic_was_on = true;
+                            tx_acc = tx_n3 = txn = 0;
+                            rcn = rci = rprev = rcur = rph = 0;
+                            link_audio_reset();
+                        }
+                        tx_acc += vtx;
+                        if (++tx_n3 == 3) {                       // average 3 samples: crude low-pass + 3:1 decimation
+                            txbuf[txn++] = link_ulaw_encode((int16_t)(tx_acc / 3));
+                            tx_acc = tx_n3 = 0;
+                            if (txn == LINK_AUDIO_SAMPLES) {
+                                link_send_audio(txbuf);
+                                txn = 0;
+                            }
+                        }
+                        if (rph == 0) {                           // next 16 kHz sample of the peer's voice
+                            rprev = rcur;
+                            if (rci >= rcn) {
+                                rcn = link_audio_read(rcache, 32);
+                                rci = 0;
+                            }
+                            rcur = rci < rcn ? rcache[rci++] : 0;
+                        }
+                        int rem = rprev + (rcur - rprev) * rph / 3;   // linear interpolation up to 48 kHz
+                        rph = (rph + 1) % 3;
+                        v += (int)(((int64_t)rem * rx_gain_q8) >> 8);
+                    } else {
+                        ic_was_on = false;
+                    }
                     if (mic_beep) v += (int)(TONE_AMP * sinf(2.0f * (float)M_PI * (beep_i++ % N) / N));
                     if (v > 32767) v = 32767;
                     if (v < -32768) v = -32768;
@@ -468,4 +507,14 @@ void codec_meter_get(int *l, int *r, bool *clip)
     *l = pk_l;
     *r = pk_r;
     *clip = clip_hold > 0;
+}
+
+void codec_set_intercom(bool on) { intercom = on; }
+bool codec_intercom_on(void) { return intercom; }
+
+void codec_set_remote_volume_db(int db)
+{
+    if (db < -40) db = -40;
+    if (db > 12) db = 12;
+    rx_gain_q8 = (int)(256.0f * powf(10.0f, db / 20.0f));
 }
