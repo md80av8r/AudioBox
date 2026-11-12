@@ -91,3 +91,9 @@
 - Add test points: MIC bias node, codec LIN1/RIN1, +12 V rail, so bias and noise can be probed without rework.
 - Consider a series jumper or footprint for BIAS (resistor option) instead of a solder bridge.
 - Mechanical: the two zip-tie slots next to the LEMO plug need to be rotated 90 degrees.
+
+## Mic bias bench test: PASSED
+- BIAS bridge removed; 9 V battery + ~550 ohm series (two-resistor combo) onto MIC IN M, battery - to G, headset mic in the MIC IN jack, no radio.
+- Result: voice through the mixer sidetone is about 1000% cleaner and clear. Confirms the on-board 3.3 V / 2.2 kohm bias is the cause of the weak, noisy mic.
+- Rev fix: bias from the 12 V rail (or ~9 V) through ~470-560 ohm, with RC filtering. Use this value as the starting point.
+- Firmware mixer defaults (15 dB preamp, +24 dB sidetone) were set for the weak bias; with proper bias drop them back (try 0-6 dB preamp, 0-12 dB sidetone).
