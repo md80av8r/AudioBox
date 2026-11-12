@@ -87,9 +87,9 @@ static lv_obj_t *gain_lbl, *vol_lbl;
 
 static void micgain_cb(lv_event_t *e)
 {
-    int step = lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));   // 0..8 = 0..24 dB in 3 dB steps
-    codec_set_mic_gain(step);
-    lv_label_set_text_fmt(gain_lbl, "MIC GAIN  +%d dB", step * 3);
+    int db = lv_slider_get_value((lv_obj_t *)lv_event_get_target(e));   // -30..+12 dB
+    codec_set_mic_level_db(db);
+    lv_label_set_text_fmt(gain_lbl, "MIC GAIN  %+d dB", db);
 }
 
 static void crewvol_cb(lv_event_t *e)
@@ -187,13 +187,14 @@ lv_obj_t *ui_home_create(lv_obj_t *settings_scr)
     lv_label_set_text(link_peer_lbl, "");
 
     gain_lbl = lv_label_create(home_scr);
-    lv_label_set_text(gain_lbl, "MIC GAIN  +0 dB");
+    lv_label_set_text(gain_lbl, "MIC GAIN  -6 dB");
     lv_obj_set_pos(gain_lbl, 20, 335);
     lv_obj_t *gs = lv_slider_create(home_scr);
     lv_obj_set_size(gs, 330, 22);
     lv_obj_set_pos(gs, 30, 370);
-    lv_slider_set_range(gs, 0, 8);
-    lv_slider_set_value(gs, 0, LV_ANIM_OFF);
+    lv_slider_set_range(gs, -30, 12);
+    lv_slider_set_value(gs, -6, LV_ANIM_OFF);
+    codec_set_mic_level_db(-6);
     lv_obj_add_event_cb(gs, micgain_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     vol_lbl = lv_label_create(home_scr);

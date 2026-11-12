@@ -118,7 +118,6 @@ void app_main(void)
         nvs = nvs_flash_init();
     }
     ESP_ERROR_CHECK(nvs);
-    link_init();   // Wi-Fi station + ESP-NOW crew link
 
     i2c_master_bus_config_t bus_cfg = {
         .i2c_port = I2C_NUM_0,
@@ -146,7 +145,7 @@ void app_main(void)
     esp_lcd_rgb_panel_config_t cfg = {
         .clk_src = LCD_CLK_SRC_DEFAULT,
         .timings = {
-            .pclk_hz = 18000000,
+            .pclk_hz = 14000000,   // 18 MHz jittered once Wi-Fi was running; slower clock leaves PSRAM headroom
             .h_res = LCD_W,
             .v_res = LCD_H,
             .hsync_pulse_width = 4,
@@ -197,6 +196,9 @@ void app_main(void)
 
     backlight(0);                              // brightest
     xTaskCreate(lvgl_task, "lvgl", 8192, NULL, 5, NULL);
+
+    // Wi-Fi/ESP-NOW last: its buffers take internal RAM, which the LCD bounce buffers and LVGL strips need first.
+    link_init();
 
     // Everything came up: keep this firmware (otherwise the bootloader rolls back after an update).
     esp_ota_mark_app_valid_cancel_rollback();

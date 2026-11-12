@@ -31,6 +31,7 @@ static volatile bool monitor_mode;
 static volatile int mic_src = 4;        // 0 = L+R, 1 = L only, 2 = R only, 3 = L-R (differential), 4 = auto (louder channel)
 static volatile bool mic_inv = false;   // invert polarity of the sidetone
 static volatile bool intercom;           // crew voice over the link
+static volatile int trim_q8 = 128;       // digital mic trim in Q8 (default -6 dB: the board's bias/preamp is already hot)
 static volatile int rx_gain_q8 = 256;    // peer voice gain in Q8
 static volatile int mic_gain_q8 = 256;  // sidetone digital gain in Q8 (256 = 1x = 0 dB)
 static volatile int pk_l, pk_r;         // decaying peak per channel (0..32768), for the meters
@@ -214,6 +215,7 @@ static void tone_task(void *arg)
                     case 3:  v = l - r; break;
                     default: v = l + r; break;
                     }
+                    v = (int)(((int64_t)v * trim_q8) >> 8);   // mic level control (digital part)
                     int vtx = mic_mute ? 0 : (mic_inv ? -v : v);
                     v = (int)(((int64_t)v * mic_gain_q8) >> 8);
                     if (mic_inv) v = -v;
@@ -517,4 +519,19 @@ void codec_set_remote_volume_db(int db)
     if (db < -40) db = -40;
     if (db > 12) db = 12;
     rx_gain_q8 = (int)(256.0f * powf(10.0f, db / 20.0f));
+}
+
+// One mic level control for the home screen: below 0 dB it attenuates digitally (the codec's analog gain cannot go below 0 dB),
+// above 0 dB it raises the codec's analog gain in 3 dB steps. Affects both the sidetone and what is sent to the peer.
+void codec_set_mic_level_db(int db)
+{
+    if (db < -30) db = -30;
+    if (db > 24) db = 24;
+    if (db >= 0) {
+        codec_set_mic_gain(db / 3);
+        trim_q8 = 256;
+    } else {
+        codec_set_mic_gain(0);
+        trim_q8 = (int)(256.0f * powf(10.0f, db / 20.0f));
+    }
 }

@@ -42,3 +42,4 @@ void codec_meter_get(int *l, int *r, bool *clip);   // decaying peaks 0..32768 p
 void codec_set_intercom(bool on);
 bool codec_intercom_on(void);
 void codec_set_remote_volume_db(int db);   // -40..+12 dB on the peer's voice
+void codec_set_mic_level_db(int db);   // -30..+24 dB: digital attenuation below 0, analog gain above
