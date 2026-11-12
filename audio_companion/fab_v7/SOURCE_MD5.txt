@@ -1,0 +1,2 @@
+31c5550f580b0899a5cd1f6b2df7c369
+(fin5 = main board file + 3 silk labels; install into audio_companion.kicad_pcb when KiCad is closed)

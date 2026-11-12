@@ -43,3 +43,6 @@ firmware/.vscode/
 *.log
 .history/
 *.history
+
+# JLCPCB order metadata (contains order number and pricing) - keep local
+Revision_20/jlcpcb_docs/Y15_gerbers/YG/4te.json

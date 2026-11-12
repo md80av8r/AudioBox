@@ -1,0 +1,6 @@
+Part,LCSC #,Qty on board,Designators,Notes (buy 1-2 spares)
+S5B-PH-K-S(LF)(SN),C157923,1,J-AIRCRAFT-1,JST PH 5-pin side entry
+S4B-PH-K-S(LF)(SN),C157926,1,J-BTN-IN-1,JST PH 4-pin side entry
+S3B-PH-K-S(LF)(SN),C157929,4,"J-35-1,J-35-2,J-35-3,J-635-IN-1",JST PH 3-pin side entry
+S2B-PH-K-S(LF)(SN),C173752,7,"J-BAT-1,J-BAT-2,J-BTN-1,J-HAPTIC-1,J-MIC-IN-1,J-USB5V-1,PTT_PASS/GND-1",JST PH 2-pin side entry
+"1x7 male header, 19mm LONG pins",NOT_ON_LCSC,2,"HDR-CP-L-1,HDR-CP-R-1","stack-on to CrowPanel - source separately, pin length must bridge the 10mm gap"

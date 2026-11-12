@@ -1,7 +1,7 @@
 # Audio companion bring-up — to-do
 
 ## Status (2026-11-12)
-- Working: display/touch, I2C devices, OTA update, tone on PHONES/LEMO, mic + sidetone with external bias, on-screen Audio Mixer (diagnostics firmware, branch claude/laughing-franklin-d2ruqb).
+- Working: LiPo battery + 12 V boost (ANR power, 12.7 V), mic bias from 12 V rail (bench rework), display/touch, I2C devices, OTA update, tone on PHONES/LEMO, mic + sidetone with external bias, on-screen Audio Mixer (diagnostics firmware, branch claude/laughing-franklin-d2ruqb).
 - Mixer defaults: preamp 0 dB, sidetone 0 dB, output -13 dB, mic channel Auto.
 - Open hardware: relay coil polarity, mic bias, BTN_IN on INT pin, battery path untested.
 - Board files: uploaded audio_companion.kicad_sch is newer than audio_companion_v19.kicad_pcb (adds J-BAT-2, J-USB-1, J-USB5V-1, CC resistors). The PCB open in KiCad (Rev D 2026) also has them; commit the current files.
@@ -31,7 +31,7 @@
 - [x] ES8388 audio: tone out works on PHONES and LEMO (with HP relay bridge)
 - [x] Mic in and sidetone: works with proper bias (bench 9 V + ~550 ohm); on-board bias too weak
 - [x] Headphone amp and mic preamp paths
-- [ ] Rework mic bias on this board from the 12 V rail (needs battery + ANR power)
+- [x] Rework mic bias on this board from the 12 V rail (done 2026-11-12, see 'Bench rework' below)
 - [ ] Relay coil rework on one board (remove HP bridge, confirm click and bypass switching)
 - [ ] LiPo battery: confirm polarity of the CrowPanel battery connector vs J-BAT pin 1 (+) BEFORE plugging in (no reverse protection, no charger on companion board)
 - [ ] Re-check ES8388 register read-back (once read all 09 with handheld connected)
@@ -92,20 +92,19 @@
 - Open: codec regs read back as all `09` once while the handheld was connected (possible glitch); re-check.
 - Open: measure DC at the MIC IN ring with no handheld; fix bias (12 V rail) next rev or via rework.
 
-## Next revision notes (collected during bring-up)
-- Relay coils: swap coil nets on HEADPHONE_BYPASS-1 and MIC_BYPASS-1 (pin 1 -> +3V3, pin 8 -> K1_COIL_DRIVE); mark +/- on the symbol.
-- Mic bias: replace 3V3 via 2.2 kohm (measured 2.69 V on M with headset in MIC IN, 3.3 V open) with a filtered bias from the 12 V rail and ~470 ohm - 1 kohm series. Wi-Fi ripple on 3V3 shows up as static/pulsing. Add RC filtering and keep the bias off the digital supply.
-- MIC IN jack and LEMO: with the headset in the LEMO and the mic relay never operating, the board MIC IN jack sees no load; verify the intended mic signal path after the relay fix.
-- BTN_IN: move from PCA9534 U3 pin 13 (INT output) to a real input (pin 12).
-- IO19/IO20 are the native USB pins: move MCLK and BYPASS_EN so USB debugging stays available. Rename BYPASS_EN to ACTIVE_EN.
-- MIC relay spare contacts (pins 5, 6, 7) are paralleled with the right headphone channel in v19_r3: confirm intent.
-- ES8388 ADC L/R data slot order was seen to vary between monitor starts (loud channel moved L<->R): add test point/layout check; firmware uses Auto channel select as a workaround.
-- Add test points: MIC bias node, codec LIN1/RIN1, +12 V rail, so bias and noise can be probed without rework.
-- Consider a series jumper or footprint for BIAS (resistor option) instead of a solder bridge.
-- Mechanical: the two zip-tie slots next to the LEMO plug need to be rotated 90 degrees.
+## Next revision notes
+Moved: the master v20 change list is `audio_companion/RESPIN_CHECKLIST.md` (single source of truth). Add new findings there.
 
 ## Mic bias bench test: PASSED
 - BIAS bridge removed; 9 V battery + ~550 ohm series (two-resistor combo) onto MIC IN M, battery - to G, headset mic in the MIC IN jack, no radio.
 - Result: voice through the mixer sidetone is about 1000% cleaner and clear. Confirms the on-board 3.3 V / 2.2 kohm bias is the cause of the weak, noisy mic.
 - Rev fix: bias from the 12 V rail (or ~9 V) through ~470-560 ohm, with RC filtering. Use this value as the starting point.
 - Firmware mixer defaults (15 dB preamp, +24 dB sidetone) were set for the weak bias; with proper bias drop them back (try 0-6 dB preamp, 0-12 dB sidetone).
+
+## Bench rework: mic bias from the 12 V rail (2026-11-12) - WORKING
+- Battery: LiPo on J-BAT-2, polarity verified with a meter; PH2.0 jumper from CrowPanel J3 to J-BAT-1 ties VBAT so the CrowPanel TP4059 charger (PROG 2 kohm, estimated ~0.5 A) charges the same cell.
+- ANR power (IO8) switch on the diagnostics screen: off = rail dim at ~3.3 V (MT3608 has no load disconnect, expected), on = 12.7 V at LEMO pin 6.
+- Rework: BIAS solder jumper (JP-MIC-BIAS-1) left OPEN; 0.98 kohm resistor soldered between J-LEMO-1 pin 6 (+12V) and pin 4 (MIC_RAW), sleeved where it passes pin 5 (AGND).
+- Measured: M to G = 12.7 V unloaded, 6.2 V with headset in MIC IN (~6.6 mA). Sidetone heard, works.
+- Caution: bench only. In relay rest state MIC_RAW goes to the aircraft mic jack, so do not connect to an aircraft with this resistor fitted. No filter cap on the bias yet (add 10-47 uF to AGND if boost noise shows up).
+- Next-rev fixes for this: see `audio_companion/RESPIN_CHECKLIST.md`.

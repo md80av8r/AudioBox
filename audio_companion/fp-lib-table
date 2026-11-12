@@ -1,0 +1,4 @@
+(fp_lib_table
+  (lib (name "easyeda_lib")(type "KiCad")(uri "${KIPRJMOD}/easyeda_lib/easyeda_lib.pretty")(options "")(descr "Project-local footprints from easyeda2kicad"))
+  (lib (name "MD88")(type "KiCad")(uri "${KIPRJMOD}/MD88.pretty")(options "")(descr "Project footprints made for the MD-88 audio companion"))
+)

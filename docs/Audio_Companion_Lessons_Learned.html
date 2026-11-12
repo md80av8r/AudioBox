@@ -1,0 +1,71 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Audio Companion - Lessons Learned</title>
+<style>
+@page{size:Letter;margin:0.7in}
+body{font:11pt/1.4 -apple-system,Helvetica,Arial,sans-serif;color:#1a1a1a}
+h1{font-size:20pt;margin:0 0 2pt}h2{font-size:13pt;margin:16pt 0 4pt;border-bottom:1px solid #999;padding-bottom:2pt}
+.sub{color:#555;margin-bottom:10pt}
+table{border-collapse:collapse;width:100%;margin:6pt 0;font-size:10pt}
+th,td{border:1px solid #bbb;padding:4pt 6pt;text-align:left;vertical-align:top}th{background:#eee}
+li{margin:2pt 0}.warn{background:#fff3cd;border:1px solid #e0c36a;padding:6pt 8pt;margin:8pt 0}
+code{font-family:Menlo,monospace;font-size:9.5pt}
+</style></head><body>
+<h1>MD-88 Audio Companion: Lessons Learned</h1>
+<div class="sub">Getting the as-ordered board (Y15, fab_v7) working on the bench. Bring-up dates 2026-11-12. Master notes: <code>BRINGUP_TODO.md</code>, <code>audio_companion/RESPIN_CHECKLIST.md</code>.</div>
+
+<h2>1. Result</h2>
+<p>The board now runs from a LiPo cell with the 12 V boost, passes audio to the headphones and Lemo, and the mic sidetone is clear. Getting there needed <b>two hardware reworks</b> (relay bridge, mic bias resistor), one <b>battery hookup</b>, and several firmware fixes. All of the reworks are bench workarounds for design errors that must be fixed in the next revision.</p>
+
+<h2>2. Hardware reworks on this board</h2>
+<table>
+<tr><th>#</th><th>Where</th><th>What was done</th><th>Why</th></tr>
+<tr><td>1</td><td>Headphone relay <code>HEADPHONE_BYPASS-1</code> (G6K-2F-Y)</td><td>Pads <b>3 and 4</b> bridged (bodge wire / solder blob) and pads <b>5 and 6</b> bridged.</td><td>Coil polarity is reversed on the board, so the relay never operates. The bridge forces the amp onto PHONES/Lemo. Removes the fail-safe: bench use only.</td></tr>
+<tr><td>2</td><td>Mic bias: <code>JP-MIC-BIAS-1</code> and Lemo J-LEMO-1</td><td>BIAS solder jumper left <b>open</b>. A <b>980 &Omega;</b> resistor soldered between Lemo <b>pin 6 (+12 V)</b> and <b>pin 4 (MIC_RAW)</b>, sleeved over pin 5 (AGND).</td><td>On-board bias (3V3 via 2.2 k&Omega;, 2.69 V under load) was weak and noisy. 12 V rail via 980 &Omega; gives 6.2 V and about 6.6 mA at the mic, with clear sidetone.</td></tr>
+<tr><td>3</td><td>Battery</td><td>LiPo on <b>J-BAT-2</b>. A PH2.0 jumper from CrowPanel <b>J3</b> to <b>J-BAT-1</b> ties VBAT so the CrowPanel TP4059 charger charges the same cell. Polarity verified with a meter. ANR power switch (IO8) enables the boost: 12.7 V on Lemo pin 6.</td><td>The companion has no charger of its own. The ANR rail sits at about 3.3 V when off (MT3608 leakage path), so a dim ANR LED is normal.</td></tr>
+</table>
+<div class="warn"><b>Bench only.</b> With the relay unoperated, the mic line (MIC_RAW) reaches the aircraft mic jack, so the 12 V bias would also appear there. Do not connect to an aircraft with these reworks fitted.</div>
+
+<h2>3. What went wrong and what we learned</h2>
+<table>
+<tr><th>Problem</th><th>Root cause</th><th>Lesson</th></tr>
+<tr><td>No audio on PHONES/Lemo (always the raw aircraft path)</td><td>Relay coil connected backwards: pin 1 to the drive transistor, pin 8 to 3V3. The G6K-2F-Y is polarized (pin 1 = +, pin 8 = &minus;).</td><td>For every polarized part (relays, diodes, caps, ICs) check the pin function against the manufacturer datasheet, not the library symbol. Add a +/&minus; mark to the symbol.</td></tr>
+<tr><td>Weak, noisy mic</td><td>Bias from 3V3 through 2.2 k&Omega;; Wi-Fi ripple on 3V3 couples into the audio.</td><td>Bias an electret mic from a filtered higher rail, never the digital supply. Provide a resistor footprint, not a solder jumper, so the value can be tuned. Bench-test the real headset on the bench supply before layout.</td></tr>
+<tr><td>Mic gain looked dead</td><td>ES8388 ADC digital volume powers up at &minus;96 dB.</td><td>Read the codec reset values. The firmware now sets 0 dB.</td></tr>
+<tr><td>Mic channel and clipping surprises</td><td>Mono mic on the left channel only; ES8388 L/R slot order varied between starts; firmware gains were set for the weak bias.</td><td>Provide an Auto channel select; return gains to 0&ndash;6 dB preamp and 0&ndash;12 dB sidetone with proper bias.</td></tr>
+<tr><td>BTN_IN button cannot be read</td><td>Routed to PCA9534 U3 pin 13, which is the INT output.</td><td>Check each GPIO-expander pin direction before assigning a signal. Move to pin 12 (SPARE5).</td></tr>
+<tr><td>USB debugging lost</td><td>IO19/IO20 are the ESP32-S3 native USB pins and were used for MCLK and BYPASS_EN.</td><td>Keep native USB pins free. Flash over the CH340 or the Wi-Fi hotspot (AudioBox-Update).</td></tr>
+<tr><td>Battery path risks</td><td>No reverse protection, fuse, switch or charger on the companion. The 12 V rail never fully turns off.</td><td>Add protection and a switch; either tap the CrowPanel VBAT or add a charger.</td></tr>
+<tr><td>First order cancelled (Y14)</td><td>Mounting holes and encoder did not clear the CrowPanel; panel connectors up to 8.9 mm tall; import duties pushed the order near $400.</td><td>Measure the real panel first (calipers), model the stack in 3D with collision checks, and include duties when comparing assembly options. Do not assume gaps.</td></tr>
+<tr><td>Board shorted on the table</td><td>Exposed underside on a conductive surface.</td><td>Use an insulating mat for bench work.</td></tr>
+<tr><td>Docs and files scattered</td><td>Notes and KiCad files lived in different folders and drifted.</td><td>One master location: the AudioBox repo, <code>audio_companion/RESPIN_CHECKLIST.md</code>.</td></tr>
+</table>
+
+<h2>4. Bench procedure that worked (in order)</h2>
+<ol>
+<li>Meter the battery polarity and the jumper cable end to end; use a protected single cell.</li>
+<li>Charge from the CrowPanel with USB, companion unplugged; confirm the charge LED.</li>
+<li>Add the J3 to J-BAT-1 jumper and the cell on J-BAT-2. Switch ANR power on and confirm 12.7 V at Lemo pin 6.</li>
+<li>Open the BIAS jumper and add the 980 &Omega; resistor between Lemo pins 6 and 4; check there is no short to AGND (pin 5) first.</li>
+<li>Plug in the headset: expect about 6.2 V at the mic and clear sidetone in both ears.</li>
+<li>For headphones, bridge HEADPHONE_BYPASS-1 pads 3&ndash;4 and 5&ndash;6. Do not bridge the mic relay.</li>
+</ol>
+
+<h2>5. Fix list for the next revision</h2>
+<ul>
+<li>Swap the coil nets on both relays (pin 1 to 3V3, pin 8 to K1_COIL_DRIVE).</li>
+<li>Mic bias from +12 V through about 1 k&Omega; with RC filter, gated off in bypass; resistor footprint instead of the solder jumper.</li>
+<li>Move BTN_IN to U3 pin 12; move MCLK and BYPASS_EN off IO19/IO20.</li>
+<li>Battery reverse protection, fuse, switch; gate the ANR LED or add a load switch so off means off.</li>
+<li>Test points: mic bias node, codec LIN1/RIN1, +12 V.</li>
+<li>Rotate the zip-tie slots 90 degrees.</li>
+</ul>
+
+<h2>6. Pre-fab checklist (apply before the next order)</h2>
+<ul>
+<li>Check every polarized part pin-by-pin against its datasheet.</li>
+<li>Check every GPIO and expander pin for direction and reserved functions (USB, strapping).</li>
+<li>Check every power rail for loads, off-state behavior, and reverse/short protection.</li>
+<li>Prototype analog bias and gain on the bench before committing the layout.</li>
+<li>Verify mechanical fit with measured parts and the 3D stack model; include duties in the cost.</li>
+<li>Run an independent netlist review before ordering.</li>
+</ul>
+</body></html>
