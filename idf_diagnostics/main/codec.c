@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -25,6 +26,17 @@ static uint8_t mic_sel_reg = 0x00;   // ADC input select: 0x00 = input 1, 0x50 =
 static uint8_t mic_gain_reg = 0x00;   // 0 dB (the board's preamp already adds gain)
 static uint8_t out_vol_reg = OUT_VOLUME;
 static volatile bool monitor_mode;
+// Mic diagnostics / processing (software, applied in the sidetone path)
+static volatile int mic_src = 0;        // 0 = L+R, 1 = L only, 2 = R only, 3 = L-R (differential)
+static volatile bool mic_inv = false;   // invert polarity of the sidetone
+static volatile int mic_sw_gain = 1;    // extra digital gain, 1..16x
+static volatile bool mic_mute = false;
+static volatile bool mic_dcblock = true;
+static int64_t dc_sum_l, dc_sum_r;      // for the mean (DC offset) readout
+static volatile uint32_t rd_err, wr_err, rd_short, frames_total;
+static int16_t snap[2][256];
+static volatile int snap_req;           // set to 256 to capture; counts down to 0 as it fills
+static int snap_pos;
 static volatile bool loopback_mode;
 static volatile bool playing;
 static volatile bool task_alive;
@@ -127,15 +139,36 @@ static void tone_task(void *arg)
     for (int k = 0; k < 8; k++) {
         for (int i = 0; i < N * 2; i++) buf[k * N * 2 + i] = cycle[i];
     }
-    static int16_t rbuf[N * 2 * 8];
+    enum { BLK = 64 };                       // frames per pass: ~1.3 ms
+    static int16_t rbuf[BLK * 2];
+    int32_t dcl = 0, dcr = 0;                // one-pole DC trackers (Q8)
+    int errs_in_row = 0;
     while (playing) {
-        size_t written, got = 0;
-        bool have = rx && i2s_channel_read(rx, rbuf, sizeof(rbuf), &got, 100) == ESP_OK && got >= 4;
-        if (have) {
+        size_t written = 0, got = 0;
+        if (monitor_mode || loopback_mode) {
+            esp_err_t re = rx ? i2s_channel_read(rx, rbuf, sizeof(rbuf), &got, 100) : ESP_FAIL;
+            if (re != ESP_OK || got < 4) {
+                rd_err++;
+                got = 0;
+                if (++errs_in_row > 20) {      // codec clock probably lost: stop instead of spinning
+                    playing = false;
+                    break;
+                }
+                if (monitor_mode) {            // keep the TX fed with silence
+                    memset(rbuf, 0, sizeof(rbuf));
+                    i2s_channel_write(tx, rbuf, sizeof(rbuf), &written, 50);
+                }
+                continue;
+            }
+            errs_in_row = 0;
+            if (got < sizeof(rbuf)) rd_short++;
             int peak = 0;
             size_t frames = got / 4;
+            frames_total += frames;
             for (size_t i = 0; i < frames; i++) {
                 int l = rbuf[2 * i], r = rbuf[2 * i + 1];
+                dc_sum_l += l;
+                dc_sum_r += r;
                 sum_l += (uint64_t)((int64_t)l * l);
                 sum_r += (uint64_t)((int64_t)r * r);
                 int al = l < 0 ? -l : l, ar = r < 0 ? -r : r;
@@ -143,8 +176,29 @@ static void tone_task(void *arg)
                 if (ar > hold_r) hold_r = ar;
                 if (al > peak) peak = al;
                 if (ar > peak) peak = ar;
-                if (monitor_mode) {            // sidetone: both inputs summed to both ears
-                    int v = l + r;
+                if (snap_req > 0) {
+                    snap[0][snap_pos] = (int16_t)l;
+                    snap[1][snap_pos] = (int16_t)r;
+                    snap_pos++;
+                    if (--snap_req == 0) snap_pos = 0;
+                }
+                if (monitor_mode) {
+                    if (mic_dcblock) {         // remove the bias DC so it cannot thump or eat headroom
+                        dcl += ((l << 8) - dcl) >> 9;
+                        dcr += ((r << 8) - dcr) >> 9;
+                        l -= dcl >> 8;
+                        r -= dcr >> 8;
+                    }
+                    int v;
+                    switch (mic_src) {
+                    case 1:  v = l; break;
+                    case 2:  v = r; break;
+                    case 3:  v = l - r; break;
+                    default: v = l + r; break;
+                    }
+                    v *= mic_sw_gain;
+                    if (mic_inv) v = -v;
+                    if (mic_mute) v = 0;
                     if (v > 32767) v = 32767;
                     if (v < -32768) v = -32768;
                     rbuf[2 * i] = (int16_t)v;
@@ -159,14 +213,16 @@ static void tone_task(void *arg)
                 if (lvl < 0) lvl = 0;
                 if (lvl > 100) lvl = 100;
             }
-            int fall = mic_level - 4;
+            int fall = mic_level - 1;
             mic_level = lvl > fall ? lvl : fall;
         }
-        if (monitor_mode && have) {
-            i2s_channel_write(tx, rbuf, got, &written, 200);
+        esp_err_t we;
+        if (monitor_mode && got) {
+            we = i2s_channel_write(tx, rbuf, got, &written, 200);
         } else {
-            i2s_channel_write(tx, buf, sizeof(buf), &written, 200);
+            we = i2s_channel_write(tx, buf, sizeof(buf), &written, 200);
         }
+        if (we != ESP_OK) wr_err++;
     }
     mic_level = 0;
     cw(0x19, 0x04);          // mute
@@ -192,6 +248,8 @@ static const char *start_common(void)
     cw(0x08, 0x00);   // slave mode before the ESP32 starts driving the clocks
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     cc.auto_clear = true;
+    cc.dma_desc_num = 4;      // small buffers: 4 x 64 frames = ~5 ms, keeps the sidetone delay short
+    cc.dma_frame_num = 64;
     if (i2s_new_channel(&cc, &tx, (monitor_mode || loopback_mode) ? &rx : NULL) != ESP_OK) return "I2S channel create";
 
     i2s_std_config_t std = {
@@ -322,4 +380,54 @@ void codec_set_mic_input(int input)
 {
     mic_sel_reg = (input == 2) ? 0x50 : 0x00;
     cw(0x0A, mic_sel_reg);
+}
+
+// ---- mic diagnostics ----
+void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute)
+{
+    if (src >= 0 && src <= 3) mic_src = src;
+    if (inv >= 0) mic_inv = inv != 0;
+    if (sw_gain >= 1 && sw_gain <= 16) mic_sw_gain = sw_gain;
+    if (dcblock >= 0) mic_dcblock = dcblock != 0;
+    if (mute >= 0) mic_mute = mute != 0;
+}
+
+void codec_mic_status(char *out, size_t n)
+{
+    int pl, pr, rl, rr;
+    codec_stats_get(&pl, &pr, &rl, &rr);
+    uint32_t cnt = sum_n ? sum_n : 1;
+    uint8_t r09 = 0xEE, r0a = 0xEE, r10 = 0xEE, r11 = 0xEE, r03 = 0xEE;
+    codec_read_reg(0x09, &r09); codec_read_reg(0x0A, &r0a);
+    codec_read_reg(0x10, &r10); codec_read_reg(0x11, &r11); codec_read_reg(0x03, &r03);
+    snprintf(out, n,
+        "running=%d frames=%u (window %u)\n"
+        "L: mean(DC) %d  rms %d  peak %d\n"
+        "R: mean(DC) %d  rms %d  peak %d\n"
+        "src=%d inv=%d swgain=%dx dcblock=%d mute=%d\n"
+        "regs: 03=%02X 09(PGA)=%02X 0A(sel)=%02X 10=%02X 11=%02X\n"
+        "errors: read=%u short=%u write=%u\n",
+        (int)playing, (unsigned)frames_total, (unsigned)sum_n,
+        (int)(dc_sum_l / cnt), rl, pl, (int)(dc_sum_r / cnt), rr, pr,
+        mic_src, mic_inv, mic_sw_gain, mic_dcblock, mic_mute,
+        r03, r09, r0a, r10, r11, (unsigned)rd_err, (unsigned)rd_short, (unsigned)wr_err);
+}
+
+void codec_stats_reset_all(void)
+{
+    codec_stats_reset();
+    dc_sum_l = dc_sum_r = 0;
+    rd_err = wr_err = rd_short = 0;
+}
+
+// Capture 256 frames of raw ADC data (L,R) into the snapshot. Returns false on timeout.
+bool codec_snapshot(const int16_t **l, const int16_t **r)
+{
+    snap_pos = 0;
+    snap_req = 256;
+    for (int t = 0; t < 500 && snap_req > 0; t += 10) vTaskDelay(pdMS_TO_TICKS(10));
+    if (snap_req > 0) { snap_req = 0; return false; }
+    *l = snap[0];
+    *r = snap[1];
+    return true;
 }

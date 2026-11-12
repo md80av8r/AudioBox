@@ -2,6 +2,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #include "driver/i2c_master.h"
 
 void codec_init(i2c_master_bus_handle_t bus);
@@ -21,3 +22,9 @@ bool codec_wait_stopped(int ms);   // true once the tone/monitor/loopback task h
 void codec_stats_reset(void);
 void codec_stats_get(int *peak_l, int *peak_r, int *rms_l, int *rms_r);   // amplitudes 0..32767
 void codec_set_mic_input(int input);   // 1 or 2: which codec input pair the mic monitor uses
+
+// Mic diagnostics (the monitor must be running)
+void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute);   // -1 = leave unchanged; src 0=L+R 1=L 2=R 3=L-R
+void codec_mic_status(char *out, size_t n);   // DC mean / rms / peak per channel, registers, error counters
+void codec_stats_reset_all(void);
+bool codec_snapshot(const int16_t **l, const int16_t **r);   // 256 raw ADC frames

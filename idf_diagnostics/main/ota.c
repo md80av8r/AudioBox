@@ -38,7 +38,7 @@ static const char page_tail[] =
     "<hr><p>Bench tools: <a href=/report>self-test report</a>, "
     "/i2c?dev=0x10&amp;reg=0x08 (add &amp;val=0x00 to write), "
     "/gpio?pin=5&amp;mode=out&amp;level=0 (mode in, out or release), "
-    "/tone?on=1, <a href=/micscan>mic scan</a></p>";
+    "/tone?on=1, <a href=/micscan>mic scan</a>, <a href=/mic>/mic</a> (input, gain, src, inv, sw, dc, mute, raw)</p>";
 
 static esp_err_t index_get(httpd_req_t *req)
 {
@@ -234,6 +234,50 @@ static esp_err_t micscan_get(httpd_req_t *req)
     return httpd_resp_sendstr(req, out);
 }
 
+
+static int qint(httpd_req_t *req, const char *key, int def)
+{
+    char q[96], v[16];
+    if (httpd_req_get_url_query_str(req, q, sizeof(q)) != ESP_OK) return def;
+    if (httpd_query_key_value(q, key, v, sizeof(v)) != ESP_OK) return def;
+    return atoi(v);
+}
+
+// /mic?input=1|2&gain=0..8&src=0..3&inv=0|1&sw=1..16&dc=0|1&mute=0|1&reset=1&raw=1
+// Starts the monitor if needed. Every parameter is optional. Reports levels, DC offset, registers.
+static esp_err_t mic_get(httpd_req_t *req)
+{
+    static char out[3000];
+    httpd_resp_set_type(req, "text/plain");
+    if (!codec_tone_playing()) {
+        const char *err = codec_monitor_start();
+        if (err) {
+            snprintf(out, sizeof(out), "could not start: %s\n", err);
+            return httpd_resp_sendstr(req, out);
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+    int v;
+    if ((v = qint(req, "input", 0)) == 1 || v == 2) codec_set_mic_input(v);
+    if ((v = qint(req, "gain", -1)) >= 0) codec_set_mic_gain(v);
+    codec_mic_config(qint(req, "src", -1), qint(req, "inv", -1), qint(req, "sw", -1),
+                     qint(req, "dc", -1), qint(req, "mute", -1));
+    if (qint(req, "reset", 1)) codec_stats_reset_all();
+    vTaskDelay(pdMS_TO_TICKS(qint(req, "ms", 2000)));     // stats window: talk into the mic
+    int n = 0;
+    codec_mic_status(out, sizeof(out));
+    n = strlen(out);
+    if (qint(req, "raw", 0)) {
+        const int16_t *l, *r;
+        if (codec_snapshot(&l, &r)) {
+            n += snprintf(out + n, sizeof(out) - n, "raw L,R (256 frames):\n");
+            for (int i = 0; i < 256 && n < (int)sizeof(out) - 16; i++)
+                n += snprintf(out + n, sizeof(out) - n, "%d,%d\n", l[i], r[i]);
+        }
+    }
+    return httpd_resp_sendstr(req, out);
+}
+
 static bool wifi_init_once(void)
 {
     if (wifi_ready) return true;
@@ -265,6 +309,7 @@ bool ota_start(void)
 
     httpd_config_t hc = HTTPD_DEFAULT_CONFIG();
     hc.stack_size = 8192;
+    hc.max_uri_handlers = 16;
     hc.recv_wait_timeout = 20;
     if (httpd_start(&server, &hc) != ESP_OK) {
         esp_wifi_stop();
@@ -284,6 +329,8 @@ bool ota_start(void)
     httpd_register_uri_handler(server, &ton);
     httpd_uri_t msc = {.uri = "/micscan", .method = HTTP_GET, .handler = micscan_get};
     httpd_register_uri_handler(server, &msc);
+    httpd_uri_t mic = {.uri = "/mic", .method = HTTP_GET, .handler = mic_get};
+    httpd_register_uri_handler(server, &mic);
     running = true;
     return true;
 }
