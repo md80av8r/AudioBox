@@ -1,3 +1,14 @@
+# Session Snapshot (Audio Companion bring-up, 2026-11-12)
+
+Branch claude/laughing-franklin-d2ruqb. Details and to-do: BRINGUP_TODO.md.
+- Diagnostics firmware (idf_diagnostics) has an Audio Mixer page: mic gain, sidetone, output, channel select/Auto, phase, DC block, mute, L/R meters.
+- Mic works only with proper bias: bench test 9 V + ~550 ohm to MIC IN M = clear. On-board 3.3 V / 2.2 kohm bias is too weak and noisy. Rev fix: bias from 12 V rail.
+- Headphones need the HP relay bridge until the relay coil polarity is fixed.
+- Build/flash: build on Mac in ~/AudioBox/idf_diagnostics (git pull, idf.py build); update over Wi-Fi AudioBox-Update / audiobox1, http://192.168.4.1. No USB flashing from the Mac.
+- Next: battery polarity check, 12 V boost test, mic bias rework, relay rework, encoder and haptic tests.
+
+---
+
 # Session Snapshot — MD-88 Audio Breakout Box
 
 **Date:** 2026-05-26

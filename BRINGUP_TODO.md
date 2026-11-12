@@ -1,5 +1,12 @@
 # Audio companion bring-up — to-do
 
+## Status (2026-11-12)
+- Working: display/touch, I2C devices, OTA update, tone on PHONES/LEMO, mic + sidetone with external bias, on-screen Audio Mixer (diagnostics firmware, branch claude/laughing-franklin-d2ruqb).
+- Mixer defaults: preamp 0 dB, sidetone 0 dB, output -13 dB, mic channel Auto.
+- Open hardware: relay coil polarity, mic bias, BTN_IN on INT pin, battery path untested.
+- Board files: uploaded audio_companion.kicad_sch is newer than audio_companion_v19.kicad_pcb (adds J-BAT-2, J-USB-1, J-USB5V-1, CC resistors). The PCB open in KiCad (Rev D 2026) also has them; commit the current files.
+- Power: BATT1/BATT2 are parallel on +BATT (pin 1 = +) feeding only the MT3608 12 V boost. No charger, fuse or reverse protection. USB-C 5 V goes only to the USB 5V OUT JST.
+
 ## To buy (Amazon)
 - [x] Ordered: dual-shaft encoder (SimFlight, EC11-based) + 8-pin JST PH 2.0 pigtail for J-ENC-1
 - [x] Ordered: haptic motor (3V ERM coin, bare leads) + 2-pin JST PH 2.0 pigtail
@@ -21,8 +28,13 @@
 - [ ] Haptic motor
 - [ ] Encoder (firmware ready, polled via expander; confirm outer/inner assignment and
       `ENC_STEPS_PER_DETENT` in `diag_hw.c` once the encoder arrives), power button
-- [ ] ES8388 audio: tone out ("Play tone" button, written, not yet tested on hardware), mic in
-- [ ] Headphone amp and mic preamp paths
+- [x] ES8388 audio: tone out works on PHONES and LEMO (with HP relay bridge)
+- [x] Mic in and sidetone: works with proper bias (bench 9 V + ~550 ohm); on-board bias too weak
+- [x] Headphone amp and mic preamp paths
+- [ ] Rework mic bias on this board from the 12 V rail (needs battery + ANR power)
+- [ ] Relay coil rework on one board (remove HP bridge, confirm click and bypass switching)
+- [ ] LiPo battery: confirm polarity of the CrowPanel battery connector vs J-BAT pin 1 (+) BEFORE plugging in (no reverse protection, no charger on companion board)
+- [ ] Re-check ES8388 register read-back (once read all 09 with handheld connected)
 
 ## Possible board bug
 - BTN_IN lands on PCA9534 U3 pin 13 (INT, an output), so that button can't be read.
