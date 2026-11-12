@@ -24,7 +24,7 @@ void codec_stats_get(int *peak_l, int *peak_r, int *rms_l, int *rms_r);   // amp
 void codec_set_mic_input(int input);   // 1 or 2: which codec input pair the mic monitor uses
 
 // Mic diagnostics (the monitor must be running)
-void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute);   // -1 = leave unchanged; src 0=L+R 1=L 2=R 3=L-R
+void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute, int beep);   // -1 = leave unchanged; src 0=L+R 1=L 2=R 3=L-R
 void codec_mic_status(char *out, size_t n);   // DC mean / rms / peak per channel, registers, error counters
 void codec_stats_reset_all(void);
 bool codec_snapshot(const int16_t **l, const int16_t **r);   // 256 raw ADC frames

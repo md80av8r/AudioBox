@@ -31,6 +31,7 @@ static volatile int mic_src = 0;        // 0 = L+R, 1 = L only, 2 = R only, 3 = 
 static volatile bool mic_inv = false;   // invert polarity of the sidetone
 static volatile int mic_sw_gain = 1;    // extra digital gain, 1..16x
 static volatile bool mic_mute = false;
+static volatile bool mic_beep = false;   // mix a 1 kHz beep into the sidetone (proves the output path)
 static volatile bool mic_dcblock = true;
 static int64_t dc_sum_l, dc_sum_r;      // for the mean (DC offset) readout
 static volatile uint32_t rd_err, wr_err, rd_short, frames_total;
@@ -143,6 +144,7 @@ static void tone_task(void *arg)
     static int16_t rbuf[BLK * 2];
     int32_t dcl = 0, dcr = 0;                // one-pole DC trackers (Q8)
     int errs_in_row = 0;
+    uint32_t beep_i = 0;
     while (playing) {
         size_t written = 0, got = 0;
         if (monitor_mode || loopback_mode) {
@@ -199,6 +201,7 @@ static void tone_task(void *arg)
                     v *= mic_sw_gain;
                     if (mic_inv) v = -v;
                     if (mic_mute) v = 0;
+                    if (mic_beep) v += (int)(TONE_AMP * sinf(2.0f * (float)M_PI * (beep_i++ % N) / N));
                     if (v > 32767) v = 32767;
                     if (v < -32768) v = -32768;
                     rbuf[2 * i] = (int16_t)v;
@@ -383,8 +386,9 @@ void codec_set_mic_input(int input)
 }
 
 // ---- mic diagnostics ----
-void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute)
+void codec_mic_config(int src, int inv, int sw_gain, int dcblock, int mute, int beep)
 {
+    if (beep >= 0) mic_beep = beep != 0;
     if (src >= 0 && src <= 3) mic_src = src;
     if (inv >= 0) mic_inv = inv != 0;
     if (sw_gain >= 1 && sw_gain <= 16) mic_sw_gain = sw_gain;
@@ -404,12 +408,12 @@ void codec_mic_status(char *out, size_t n)
         "running=%d frames=%u (window %u)\n"
         "L: mean(DC) %d  rms %d  peak %d\n"
         "R: mean(DC) %d  rms %d  peak %d\n"
-        "src=%d inv=%d swgain=%dx dcblock=%d mute=%d\n"
+        "src=%d inv=%d swgain=%dx dcblock=%d mute=%d beep=%d\n"
         "regs: 03=%02X 09(PGA)=%02X 0A(sel)=%02X 10=%02X 11=%02X\n"
         "errors: read=%u short=%u write=%u\n",
         (int)playing, (unsigned)frames_total, (unsigned)sum_n,
         (int)(dc_sum_l / cnt), rl, pl, (int)(dc_sum_r / cnt), rr, pr,
-        mic_src, mic_inv, mic_sw_gain, mic_dcblock, mic_mute,
+        mic_src, mic_inv, mic_sw_gain, mic_dcblock, mic_mute, mic_beep,
         r03, r09, r0a, r10, r11, (unsigned)rd_err, (unsigned)rd_short, (unsigned)wr_err);
 }
 
