@@ -46,3 +46,15 @@
 ## Note
 - The Haptic buzz button was replaced by Loopback test while debugging audio; add it back when the haptic motor arrives
   (`diag_haptic_buzz()` is still in diag_hw.c).
+
+## Confirmed design bug: relay coil polarity reversed (both relays, all boards)
+- Omron G6K-2F-Y datasheet (terminal arrangement, top view): coil pin 1 = +, pin 8 = -.
+  Contacts at rest: 2-3 and 7-6 closed (NC); energized: 3-4 and 6-5 closed (NO).
+- Board (production Y15 and KiCad v19_r3): pin 1 -> K1_COIL_DRIVE (Q1 drain), pin 8 -> +3V3.
+  The coil is driven backwards, so the polarized relay never operates.
+- Effect: PHONES / Lemo always get the AIRCRAFT (RAW) path, never the amp. This was the "no audio" fault.
+- Fix for the next revision: swap the two coil nets on HEADPHONE_BYPASS-1 and MIC_BYPASS-1
+  (pin 1 -> +3V3, pin 8 -> K1_COIL_DRIVE). D1/D2 stay across the coil as they are.
+- Bench workaround on a built board: solder-bridge HEADPHONE_BYPASS-1 pins 3-4 and 5-6
+  (amp permanently on PHONES; removes the fail-safe, bench use only).
+- Also still open: BTN_IN on PCA9534 INT pin (U3.13); ACT LED / IO20 not going high.
