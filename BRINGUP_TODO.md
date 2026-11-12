@@ -79,3 +79,14 @@
 - `/mic?input=1&gain=3&src=1&sw=4&inv=0&dc=1&mute=0&beep=0&ms=6000` for level/DC/regs. `beep=1` proves the output path.
 - Open: codec regs read back as all `09` once while the handheld was connected (possible glitch); re-check.
 - Open: measure DC at the MIC IN ring with no handheld; fix bias (12 V rail) next rev or via rework.
+
+## Next revision notes (collected during bring-up)
+- Relay coils: swap coil nets on HEADPHONE_BYPASS-1 and MIC_BYPASS-1 (pin 1 -> +3V3, pin 8 -> K1_COIL_DRIVE); mark +/- on the symbol.
+- Mic bias: replace 3V3 via 2.2 kohm (measured 2.69 V on M with headset in MIC IN, 3.3 V open) with a filtered bias from the 12 V rail and ~470 ohm - 1 kohm series. Wi-Fi ripple on 3V3 shows up as static/pulsing. Add RC filtering and keep the bias off the digital supply.
+- MIC IN jack and LEMO: with the headset in the LEMO and the mic relay never operating, the board MIC IN jack sees no load; verify the intended mic signal path after the relay fix.
+- BTN_IN: move from PCA9534 U3 pin 13 (INT output) to a real input (pin 12).
+- IO19/IO20 are the native USB pins: move MCLK and BYPASS_EN so USB debugging stays available. Rename BYPASS_EN to ACTIVE_EN.
+- MIC relay spare contacts (pins 5, 6, 7) are paralleled with the right headphone channel in v19_r3: confirm intent.
+- ES8388 ADC L/R data slot order was seen to vary between monitor starts (loud channel moved L<->R): add test point/layout check; firmware uses Auto channel select as a workaround.
+- Add test points: MIC bias node, codec LIN1/RIN1, +12 V rail, so bias and noise can be probed without rework.
+- Consider a series jumper or footprint for BIAS (resistor option) instead of a solder bridge.
