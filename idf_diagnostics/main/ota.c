@@ -235,7 +235,7 @@ static esp_err_t micscan_get(httpd_req_t *req)
 }
 
 
-static int qint(httpd_req_t *req, const char *key, int def)
+static int qdef(httpd_req_t *req, const char *key, int def)
 {
     char q[96], v[16];
     if (httpd_req_get_url_query_str(req, q, sizeof(q)) != ESP_OK) return def;
@@ -258,16 +258,16 @@ static esp_err_t mic_get(httpd_req_t *req)
         vTaskDelay(pdMS_TO_TICKS(500));
     }
     int v;
-    if ((v = qint(req, "input", 0)) == 1 || v == 2) codec_set_mic_input(v);
-    if ((v = qint(req, "gain", -1)) >= 0) codec_set_mic_gain(v);
-    codec_mic_config(qint(req, "src", -1), qint(req, "inv", -1), qint(req, "sw", -1),
-                     qint(req, "dc", -1), qint(req, "mute", -1));
-    if (qint(req, "reset", 1)) codec_stats_reset_all();
-    vTaskDelay(pdMS_TO_TICKS(qint(req, "ms", 2000)));     // stats window: talk into the mic
+    if ((v = qdef(req, "input", 0)) == 1 || v == 2) codec_set_mic_input(v);
+    if ((v = qdef(req, "gain", -1)) >= 0) codec_set_mic_gain(v);
+    codec_mic_config(qdef(req, "src", -1), qdef(req, "inv", -1), qdef(req, "sw", -1),
+                     qdef(req, "dc", -1), qdef(req, "mute", -1));
+    if (qdef(req, "reset", 1)) codec_stats_reset_all();
+    vTaskDelay(pdMS_TO_TICKS(qdef(req, "ms", 2000)));     // stats window: talk into the mic
     int n = 0;
     codec_mic_status(out, sizeof(out));
     n = strlen(out);
-    if (qint(req, "raw", 0)) {
+    if (qdef(req, "raw", 0)) {
         const int16_t *l, *r;
         if (codec_snapshot(&l, &r)) {
             n += snprintf(out + n, sizeof(out) - n, "raw L,R (256 frames):\n");
