@@ -18,6 +18,7 @@ static i2c_master_dev_handle_t codec_dev;
 static i2s_chan_handle_t tx;
 static i2s_chan_handle_t rx;
 static volatile int mic_level;
+static volatile int hold_l, hold_r;
 static uint8_t mic_gain_reg = 0x44;   // 12 dB
 static uint8_t out_vol_reg = OUT_VOLUME;
 static volatile bool monitor_mode;
@@ -131,10 +132,14 @@ static void tone_task(void *arg)
             size_t got = 0;
             if (i2s_channel_read(rx, rbuf, sizeof(rbuf), &got, 100) == ESP_OK && got >= 4) {
                 int peak = 0;
-                for (size_t i = 0; i + 1 < got / 2; i += 2) {   // left channel only
-                    int v = rbuf[i];
-                    if (v < 0) v = -v;
-                    if (v > peak) peak = v;
+                for (size_t i = 0; i + 1 < got / 2; i += 2) {
+                    int l = rbuf[i], r = rbuf[i + 1];
+                    if (l < 0) l = -l;
+                    if (r < 0) r = -r;
+                    if (l > hold_l) hold_l = l;
+                    if (r > hold_r) hold_r = r;
+                    if (l > peak) peak = l;
+                    if (r > peak) peak = r;
                 }
                 int lvl = 0;
                 if (peak > 0) {
@@ -277,4 +282,16 @@ bool codec_wait_stopped(int ms)
 {
     for (int t = 0; t < ms && (task_alive || playing); t += 20) vTaskDelay(pdMS_TO_TICKS(20));
     return !task_alive && !playing;
+}
+
+void codec_peaks_reset(void)
+{
+    hold_l = 0;
+    hold_r = 0;
+}
+
+void codec_peaks_get(int *left, int *right)
+{
+    *left = hold_l;
+    *right = hold_r;
 }

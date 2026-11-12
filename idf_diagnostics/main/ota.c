@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,7 @@ static const char page_tail[] =
     "<hr><p>Bench tools: <a href=/report>self-test report</a>, "
     "/i2c?dev=0x10&amp;reg=0x08 (add &amp;val=0x00 to write), "
     "/gpio?pin=5&amp;mode=out&amp;level=0 (mode in, out or release), "
-    "/tone?on=1</p>";
+    "/tone?on=1, <a href=/micscan>mic scan</a></p>";
 
 static esp_err_t index_get(httpd_req_t *req)
 {
@@ -187,6 +188,44 @@ static esp_err_t tone_get(httpd_req_t *req)
     return httpd_resp_sendstr(req, msg);
 }
 
+static int peak_db(int p)
+{
+    return p > 0 ? (int)(20.0f * log10f((float)p / 32768.0f)) : -99;
+}
+
+// Tap or talk into the mic while this runs: it listens on each codec input in turn.
+static esp_err_t micscan_get(httpd_req_t *req)
+{
+    char out[400];
+    int n = 0;
+    httpd_resp_set_type(req, "text/plain");
+    if (codec_tone_playing()) {
+        codec_tone_stop();
+        codec_wait_stopped(800);
+    }
+    const char *err = codec_monitor_start();
+    if (err) {
+        snprintf(out, sizeof(out), "could not start: %s\n", err);
+        return httpd_resp_sendstr(req, out);
+    }
+    codec_write_reg(0x09, 0x88);   // 24 dB on both channels
+    static const uint8_t sel[2] = {0x00, 0x50};
+    n += snprintf(out + n, sizeof(out) - n, "Mic input scan (peak level, 0 dB = full scale)\n");
+    for (int i = 0; i < 2; i++) {
+        codec_write_reg(0x0A, sel[i]);
+        vTaskDelay(pdMS_TO_TICKS(400));
+        codec_peaks_reset();
+        vTaskDelay(pdMS_TO_TICKS(2500));
+        int l, r;
+        codec_peaks_get(&l, &r);
+        n += snprintf(out + n, sizeof(out) - n, "input %d:  left %d dB   right %d dB\n",
+                      i + 1, peak_db(l), peak_db(r));
+    }
+    codec_write_reg(0x0A, 0x50);
+    codec_tone_stop();
+    return httpd_resp_sendstr(req, out);
+}
+
 static bool wifi_init_once(void)
 {
     if (wifi_ready) return true;
@@ -235,6 +274,8 @@ bool ota_start(void)
     httpd_register_uri_handler(server, &i2c);
     httpd_register_uri_handler(server, &gpi);
     httpd_register_uri_handler(server, &ton);
+    httpd_uri_t msc = {.uri = "/micscan", .method = HTTP_GET, .handler = micscan_get};
+    httpd_register_uri_handler(server, &msc);
     running = true;
     return true;
 }
